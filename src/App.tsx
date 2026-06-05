@@ -16,7 +16,7 @@ function App() {
   }, [fetchInitialData]);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/InventoryED">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
