@@ -1,17 +1,124 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X } from 'lucide-react';
+import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { User } from '../types';
+import type { Medication, User } from '../types';
+
+type MedicationInput = Omit<Medication, 'id'>;
+
+const medicationColumnOrder = [
+  'name',
+  'genericName',
+  'brandName',
+  'strength',
+  'form',
+  'route',
+  'unit',
+  'minStockLevel',
+] as const;
+
+const medicationHeaderAliases: Record<string, keyof MedicationInput> = {
+  name: 'name',
+  displayname: 'name',
+  display: 'name',
+  medication: 'name',
+  medicationname: 'name',
+  generic: 'genericName',
+  genericname: 'genericName',
+  brand: 'brandName',
+  brandname: 'brandName',
+  strength: 'strength',
+  form: 'form',
+  route: 'route',
+  unit: 'unit',
+  units: 'unit',
+  minstock: 'minStockLevel',
+  minstocklevel: 'minStockLevel',
+  minimumstock: 'minStockLevel',
+  minimumstocklevel: 'minStockLevel',
+};
+
+const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const splitMedicationRow = (row: string) => {
+  if (row.includes('\t')) return row.split('\t');
+  return row.split(',');
+};
+
+const parseExcelMedications = (text: string): { rows: MedicationInput[]; errors: string[] } => {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return { rows: [], errors: [] };
+  }
+
+  const firstRow = splitMedicationRow(lines[0]).map(cell => cell.trim());
+  const headerFields = firstRow.map(cell => medicationHeaderAliases[normalizeHeader(cell)]).filter(Boolean);
+  const hasHeader = headerFields.length >= 2;
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+  const headers = hasHeader
+    ? firstRow.map(cell => medicationHeaderAliases[normalizeHeader(cell)] || null)
+    : medicationColumnOrder;
+
+  const rows: MedicationInput[] = [];
+  const errors: string[] = [];
+
+  dataLines.forEach((line, index) => {
+    const values = splitMedicationRow(line).map(cell => cell.trim());
+    const source: Partial<Record<keyof MedicationInput, string>> = {};
+
+    headers.forEach((field, fieldIndex) => {
+      if (field) {
+        source[field] = values[fieldIndex] || '';
+      }
+    });
+
+    const lineNumber = hasHeader ? index + 2 : index + 1;
+    const minStockLevel = Number(source.minStockLevel);
+    const missingFields = [
+      ['Display Name', source.name],
+      ['Generic Name', source.genericName],
+      ['Strength', source.strength],
+      ['Form', source.form],
+      ['Route', source.route],
+      ['Unit', source.unit],
+    ].filter(([, value]) => !value);
+
+    if (missingFields.length > 0 || !Number.isFinite(minStockLevel) || minStockLevel < 1) {
+      errors.push(`Row ${lineNumber}: check required fields and Min Stock.`);
+      return;
+    }
+
+    rows.push({
+      name: source.name as string,
+      genericName: source.genericName as string,
+      brandName: source.brandName || undefined,
+      strength: source.strength as string,
+      form: source.form as string,
+      route: source.route as string,
+      unit: source.unit as string,
+      minStockLevel,
+    });
+  });
+
+  return { rows, errors };
+};
 
 export const Admin = () => {
   const { medications, addStock, addMedication, currentUser, users } = useStore();
   
   const [activeTab, setActiveTab] = useState<'restock' | 'new_med' | 'users'>('restock');
   const [successMessage, setSuccessMessage] = useState('');
+  const [bulkMedicationText, setBulkMedicationText] = useState('');
+  const [bulkMedicationError, setBulkMedicationError] = useState<string | null>(null);
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const parsedBulkMedications = parseExcelMedications(bulkMedicationText);
 
   const handleUserFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -114,6 +221,22 @@ export const Admin = () => {
 
     showSuccess('New medication registered!');
     e.currentTarget.reset();
+  };
+
+  const handleBulkMedicationImport = async () => {
+    const parsed = parseExcelMedications(bulkMedicationText);
+    if (parsed.rows.length === 0 || parsed.errors.length > 0) {
+      setBulkMedicationError(parsed.errors[0] || 'Paste at least one medication row.');
+      return;
+    }
+
+    setBulkMedicationError(null);
+    for (const medication of parsed.rows) {
+      await addMedication(medication);
+    }
+
+    showSuccess(`${parsed.rows.length} medication${parsed.rows.length === 1 ? '' : 's'} registered!`);
+    setBulkMedicationText('');
   };
 
   if (currentUser?.role === 'staff') {
@@ -229,6 +352,48 @@ export const Admin = () => {
               className="card p-6"
             >
               <form onSubmit={handleNewMedication} className="space-y-4">
+                <div className="rounded-xl border border-dashed border-primary-200 bg-primary-50/40 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <ClipboardPaste size={17} className="text-primary-600" />
+                    Paste Excel Rows
+                  </div>
+                  <textarea
+                    value={bulkMedicationText}
+                    onChange={(e) => {
+                      setBulkMedicationText(e.target.value);
+                      setBulkMedicationError(null);
+                    }}
+                    placeholder="Display Name	Generic Name	Brand Name	Strength	Form	Route	Unit	Min Stock"
+                    className="w-full min-h-28 resize-y p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-white text-sm font-mono transition-colors"
+                  />
+                  {bulkMedicationText && (
+                    <div className="space-y-2">
+                      {parsedBulkMedications.errors.length > 0 && (
+                        <div className="text-xs font-semibold text-rose-600">
+                          {parsedBulkMedications.errors[0]}
+                        </div>
+                      )}
+                      {bulkMedicationError && (
+                        <div className="text-xs font-semibold text-rose-600">
+                          {bulkMedicationError}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-slate-500">
+                          {parsedBulkMedications.rows.length} valid row{parsedBulkMedications.rows.length === 1 ? '' : 's'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleBulkMedicationImport}
+                          disabled={parsedBulkMedications.rows.length === 0 || parsedBulkMedications.errors.length > 0}
+                          className="btn-primary px-4 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Import Rows
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Display Name</label>
