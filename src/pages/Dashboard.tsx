@@ -12,8 +12,7 @@ export const Dashboard = () => {
   const totalItemsCount = inventory.length;
   
   const lowStockItems = inventory.filter(inv => {
-    const med = medications.find(m => m.id === inv.medicationId);
-    return med && inv.quantity <= med.minStockLevel;
+    return inv.currentQuantity <= inv.minStockLevel;
   });
 
   const expiringSoonItems = inventory.filter(inv => new Date(inv.expiryDate) <= ninetyDaysFromNow);
@@ -123,8 +122,8 @@ export const Dashboard = () => {
                       <p className="text-xs text-slate-500">{med?.genericName}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-danger">{inv.quantity} <span className="text-xs font-normal">left</span></p>
-                      <p className="text-xs text-slate-500">Min: {med?.minStockLevel}</p>
+                      <p className="text-sm font-bold text-danger">{inv.currentQuantity} <span className="text-xs font-normal">left</span></p>
+                      <p className="text-xs text-slate-500">Min: {inv.minStockLevel}</p>
                     </div>
                   </div>
                 )

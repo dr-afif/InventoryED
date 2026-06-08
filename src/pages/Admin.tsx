@@ -1,124 +1,27 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste } from 'lucide-react';
+import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste, ArrowRight, Save, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Medication, User } from '../types';
-
-type MedicationInput = Omit<Medication, 'id'>;
-
-const medicationColumnOrder = [
-  'name',
-  'genericName',
-  'brandName',
-  'strength',
-  'form',
-  'route',
-  'unit',
-  'minStockLevel',
-] as const;
-
-const medicationHeaderAliases: Record<string, keyof MedicationInput> = {
-  name: 'name',
-  displayname: 'name',
-  display: 'name',
-  medication: 'name',
-  medicationname: 'name',
-  generic: 'genericName',
-  genericname: 'genericName',
-  brand: 'brandName',
-  brandname: 'brandName',
-  strength: 'strength',
-  form: 'form',
-  route: 'route',
-  unit: 'unit',
-  units: 'unit',
-  minstock: 'minStockLevel',
-  minstocklevel: 'minStockLevel',
-  minimumstock: 'minStockLevel',
-  minimumstocklevel: 'minStockLevel',
-};
-
-const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-const splitMedicationRow = (row: string) => {
-  if (row.includes('\t')) return row.split('\t');
-  return row.split(',');
-};
-
-const parseExcelMedications = (text: string): { rows: MedicationInput[]; errors: string[] } => {
-  const lines = text
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  if (lines.length === 0) {
-    return { rows: [], errors: [] };
-  }
-
-  const firstRow = splitMedicationRow(lines[0]).map(cell => cell.trim());
-  const headerFields = firstRow.map(cell => medicationHeaderAliases[normalizeHeader(cell)]).filter(Boolean);
-  const hasHeader = headerFields.length >= 2;
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-  const headers = hasHeader
-    ? firstRow.map(cell => medicationHeaderAliases[normalizeHeader(cell)] || null)
-    : medicationColumnOrder;
-
-  const rows: MedicationInput[] = [];
-  const errors: string[] = [];
-
-  dataLines.forEach((line, index) => {
-    const values = splitMedicationRow(line).map(cell => cell.trim());
-    const source: Partial<Record<keyof MedicationInput, string>> = {};
-
-    headers.forEach((field, fieldIndex) => {
-      if (field) {
-        source[field] = values[fieldIndex] || '';
-      }
-    });
-
-    const lineNumber = hasHeader ? index + 2 : index + 1;
-    const minStockLevel = Number(source.minStockLevel);
-    const missingFields = [
-      ['Display Name', source.name],
-      ['Generic Name', source.genericName],
-      ['Strength', source.strength],
-      ['Form', source.form],
-      ['Route', source.route],
-      ['Unit', source.unit],
-    ].filter(([, value]) => !value);
-
-    if (missingFields.length > 0 || !Number.isFinite(minStockLevel) || minStockLevel < 1) {
-      errors.push(`Row ${lineNumber}: check required fields and Min Stock.`);
-      return;
-    }
-
-    rows.push({
-      name: source.name as string,
-      genericName: source.genericName as string,
-      brandName: source.brandName || undefined,
-      strength: source.strength as string,
-      form: source.form as string,
-      route: source.route as string,
-      unit: source.unit as string,
-      minStockLevel,
-    });
-  });
-
-  return { rows, errors };
-};
+import { parseMedicationBulkText, normalizeMedicationName, type ParsedMedicationImportRow } from '../utils/medicationParser';
 
 export const Admin = () => {
-  const { medications, addStock, addMedication, currentUser, users } = useStore();
+  const { medications, addStock, addMedication, addBulkMedications, currentUser, users } = useStore();
   
   const [activeTab, setActiveTab] = useState<'restock' | 'new_med' | 'users'>('restock');
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Bulk Import States
   const [bulkMedicationText, setBulkMedicationText] = useState('');
-  const [bulkMedicationError, setBulkMedicationError] = useState<string | null>(null);
+  const [importStep, setImportStep] = useState<1 | 2 | 3>(1);
+  const [parsedRows, setParsedRows] = useState<ParsedMedicationImportRow[]>([]);
+  const [importUpdateExisting, setImportUpdateExisting] = useState(false);
+  const [importStats, setImportStats] = useState({ imported: 0, updated: 0 });
+
+  // User States
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-
-  const parsedBulkMedications = parseExcelMedications(bulkMedicationText);
 
   const handleUserFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -207,36 +110,55 @@ export const Admin = () => {
   const handleNewMedication = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const displayName = formData.get('name') as string;
     
     await addMedication({
-      name: formData.get('name') as string,
+      displayName,
+      normalizedName: normalizeMedicationName(displayName),
       genericName: formData.get('genericName') as string,
       brandName: formData.get('brandName') as string,
       strength: formData.get('strength') as string,
       form: formData.get('form') as string,
       route: formData.get('route') as string,
       unit: formData.get('unit') as string,
-      minStockLevel: Number(formData.get('minStockLevel')),
+      maxStockLevel: Number(formData.get('maxStockLevel')),
+      minStockLevel: Math.ceil(Number(formData.get('maxStockLevel')) * 0.3), // Auto calculated
+      active: true,
     });
 
     showSuccess('New medication registered!');
     e.currentTarget.reset();
   };
 
+  const handleParseText = () => {
+    if (!bulkMedicationText.trim()) return;
+    const rows = parseMedicationBulkText(bulkMedicationText, medications);
+    setParsedRows(rows);
+    setImportStep(2);
+  };
+
   const handleBulkMedicationImport = async () => {
-    const parsed = parseExcelMedications(bulkMedicationText);
-    if (parsed.rows.length === 0 || parsed.errors.length > 0) {
-      setBulkMedicationError(parsed.errors[0] || 'Paste at least one medication row.');
-      return;
-    }
+    const validRows = parsedRows.filter(r => r.status !== 'error');
+    if (validRows.length === 0) return;
 
-    setBulkMedicationError(null);
-    for (const medication of parsed.rows) {
-      await addMedication(medication);
-    }
+    // Convert to Medication DTOs
+    const dtos: any[] = validRows.map(r => ({
+      displayName: r.displayName,
+      normalizedName: r.normalizedName,
+      maxStockLevel: r.maxStockLevel,
+      minStockLevel: r.minStockLevel,
+      active: true,
+    }));
 
-    showSuccess(`${parsed.rows.length} medication${parsed.rows.length === 1 ? '' : 's'} registered!`);
+    const result = await addBulkMedications(dtos, importUpdateExisting);
+    setImportStats(result);
+    setImportStep(3);
+  };
+
+  const handleResetImport = () => {
+    setImportStep(1);
     setBulkMedicationText('');
+    setParsedRows([]);
   };
 
   if (currentUser?.role === 'staff') {
@@ -315,7 +237,7 @@ export const Admin = () => {
                   <select name="medicationId" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors">
                     <option value="">-- Choose Medication --</option>
                     {medications.map(med => (
-                      <option key={med.id} value={med.id}>{med.name} ({med.genericName})</option>
+                      <option key={med.id} value={med.id}>{med.displayName} {med.genericName ? `(${med.genericName})` : ''}</option>
                     ))}
                   </select>
                 </div>
@@ -349,64 +271,148 @@ export const Admin = () => {
               key="new_med"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="card p-6"
+              className="card p-6 space-y-8"
             >
-              <form onSubmit={handleNewMedication} className="space-y-4">
-                <div className="rounded-xl border border-dashed border-primary-200 bg-primary-50/40 p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                    <ClipboardPaste size={17} className="text-primary-600" />
-                    Paste Excel Rows
-                  </div>
-                  <textarea
-                    value={bulkMedicationText}
-                    onChange={(e) => {
-                      setBulkMedicationText(e.target.value);
-                      setBulkMedicationError(null);
-                    }}
-                    placeholder="Display Name	Generic Name	Brand Name	Strength	Form	Route	Unit	Min Stock"
-                    className="w-full min-h-28 resize-y p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-white text-sm font-mono transition-colors"
-                  />
-                  {bulkMedicationText && (
-                    <div className="space-y-2">
-                      {parsedBulkMedications.errors.length > 0 && (
-                        <div className="text-xs font-semibold text-rose-600">
-                          {parsedBulkMedications.errors[0]}
+              {/* BULK IMPORT WIZARD */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+                  <ClipboardPaste className="text-primary-600" size={18} />
+                  <h3 className="font-bold text-slate-800 text-sm">Bulk Excel/CSV Import</h3>
+                </div>
+                <div className="p-4">
+                  
+                  {importStep === 1 && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-500">Paste your rows directly from Excel or Google Sheets. Include columns for <strong className="text-slate-700">Medication</strong> and <strong className="text-slate-700">Maksimum</strong>.</p>
+                      <textarea
+                        value={bulkMedicationText}
+                        onChange={(e) => setBulkMedicationText(e.target.value)}
+                        placeholder="Medication&#9;Maksimum&#10;Adrenaline 1mg/10ml&#9;20&#10;Atropine 600mcg&#9;30"
+                        className="w-full h-32 resize-y p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 text-sm font-mono transition-colors"
+                      />
+                      <button
+                        onClick={handleParseText}
+                        disabled={!bulkMedicationText.trim()}
+                        className="btn-primary w-full flex justify-center items-center gap-2 text-sm disabled:opacity-50"
+                      >
+                        Preview Import <ArrowRight size={16} />
+                      </button>
+                    </div>
+                  )}
+
+                  {importStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-bold text-slate-700">Preview Data</span>
+                        <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+                          {parsedRows.length} Rows Parsed
                         </div>
-                      )}
-                      {bulkMedicationError && (
-                        <div className="text-xs font-semibold text-rose-600">
-                          {bulkMedicationError}
+                      </div>
+                      
+                      <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 sticky top-0 shadow-sm">
+                            <tr>
+                              <th className="p-2 font-semibold text-slate-600">Row</th>
+                              <th className="p-2 font-semibold text-slate-600">Medication</th>
+                              <th className="p-2 font-semibold text-slate-600 text-center">Max</th>
+                              <th className="p-2 font-semibold text-slate-600 text-center">Min (30%)</th>
+                              <th className="p-2 font-semibold text-slate-600 text-right">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {parsedRows.map((row, i) => (
+                              <tr key={i} className={row.status === 'error' ? 'bg-rose-50/50' : 'hover:bg-slate-50'}>
+                                <td className="p-2 text-slate-400">{row.rowNumber}</td>
+                                <td className="p-2 font-medium text-slate-700">{row.displayName}</td>
+                                <td className="p-2 text-center">{row.maxStockLevel > 0 ? row.maxStockLevel : '-'}</td>
+                                <td className="p-2 text-center text-slate-400">{row.minStockLevel > 0 ? row.minStockLevel : '-'}</td>
+                                <td className="p-2 text-right">
+                                  {row.status === 'new' && <span className="text-success font-bold text-[10px] uppercase bg-success/10 px-2 py-0.5 rounded-full">New</span>}
+                                  {row.status === 'duplicate' && <span className="text-amber-500 font-bold text-[10px] uppercase bg-amber-50 px-2 py-0.5 rounded-full">Existing</span>}
+                                  {row.status === 'error' && <span className="text-rose-500 font-bold text-[10px] uppercase bg-rose-50 px-2 py-0.5 rounded-full" title={row.error}>Error</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-start gap-3">
+                        <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+                        <div className="text-xs text-amber-700 space-y-1">
+                          <p><strong>Note:</strong> Duplicates are matched by normalized name. Import will automatically create initial inventory in the Central ED location using Max Stock values.</p>
+                          <label className="flex items-center gap-2 mt-2 cursor-pointer font-semibold">
+                            <input 
+                              type="checkbox" 
+                              checked={importUpdateExisting} 
+                              onChange={(e) => setImportUpdateExisting(e.target.checked)} 
+                              className="rounded border-amber-300 text-amber-600 focus:ring-amber-500" 
+                            />
+                            Update existing medications with new Max/Min levels
+                          </label>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold text-slate-500">
-                          {parsedBulkMedications.rows.length} valid row{parsedBulkMedications.rows.length === 1 ? '' : 's'}
-                        </span>
-                        <button
-                          type="button"
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button onClick={() => setImportStep(1)} className="btn-secondary flex-1 text-sm py-2">Back</button>
+                        <button 
                           onClick={handleBulkMedicationImport}
-                          disabled={parsedBulkMedications.rows.length === 0 || parsedBulkMedications.errors.length > 0}
-                          className="btn-primary px-4 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={parsedRows.filter(r => r.status !== 'error').length === 0}
+                          className="btn-primary flex-1 text-sm py-2 flex items-center justify-center gap-2"
                         >
-                          Import Rows
+                          <Save size={16} /> Confirm Import
                         </button>
                       </div>
                     </div>
                   )}
+
+                  {importStep === 3 && (
+                    <div className="py-6 text-center space-y-4">
+                      <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-2 text-success">
+                        <CheckCircle2 size={32} />
+                      </div>
+                      <h3 className="font-bold text-lg text-slate-800">Import Successful!</h3>
+                      <div className="flex justify-center gap-4 text-sm font-semibold text-slate-600">
+                        <div className="bg-slate-100 px-4 py-2 rounded-xl">
+                          <span className="text-primary-600 block text-xl">{importStats.imported}</span> New
+                        </div>
+                        <div className="bg-slate-100 px-4 py-2 rounded-xl">
+                          <span className="text-amber-600 block text-xl">{importStats.updated}</span> Updated
+                        </div>
+                      </div>
+                      <button onClick={handleResetImport} className="btn-secondary mt-4 text-sm inline-flex items-center gap-2">
+                        <RotateCcw size={16} /> Import More
+                      </button>
+                    </div>
+                  )}
+
                 </div>
-                
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-3 text-sm font-bold text-slate-400">OR REGISTER MANUALLY</span>
+                </div>
+              </div>
+
+              {/* SINGLE MEDICATION FORM */}
+              <form onSubmit={handleNewMedication} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Display Name</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Display Name *</label>
                   <input type="text" name="name" required placeholder="e.g. Adrenaline 1mg/10ml" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Generic Name</label>
-                    <input type="text" name="genericName" required placeholder="e.g. Epinephrine" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
+                    <input type="text" name="genericName" placeholder="e.g. Epinephrine" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Brand Name (Optional)</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Brand Name</label>
                     <input type="text" name="brandName" placeholder="e.g. EpiPen" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                 </div>
@@ -414,11 +420,12 @@ export const Admin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Strength</label>
-                    <input type="text" name="strength" required placeholder="e.g. 1mg/10ml" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
+                    <input type="text" name="strength" placeholder="e.g. 1mg/10ml" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Form</label>
-                    <select name="form" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors">
+                    <select name="form" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors">
+                      <option value="">-- Optional --</option>
                       <option value="Ampoule">Ampoule</option>
                       <option value="Vial">Vial</option>
                       <option value="Syringe">Syringe</option>
@@ -433,20 +440,20 @@ export const Admin = () => {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Route</label>
-                    <input type="text" name="route" required placeholder="IV/IM" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
+                    <input type="text" name="route" placeholder="IV/IM" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1">Unit</label>
-                    <input type="text" name="unit" required placeholder="vials" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
+                    <input type="text" name="unit" placeholder="vials" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Min Stock</label>
-                    <input type="number" name="minStockLevel" required min="1" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Max Stock *</label>
+                    <input type="number" name="maxStockLevel" required min="1" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
                   </div>
                 </div>
 
-                <button type="submit" className="btn-primary w-full mt-6">
-                  Register Medication
+                <button type="submit" className="btn-secondary border-primary-200 text-primary-600 bg-primary-50 w-full mt-6">
+                  Register Single Medication
                 </button>
               </form>
             </motion.div>

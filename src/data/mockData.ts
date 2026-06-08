@@ -17,110 +17,158 @@ export const mockLocations: Location[] = [
 export const mockMedications: Medication[] = [
   {
     id: 'm1',
-    name: 'Adrenaline 1mg/10ml',
+    displayName: 'Adrenaline 1mg/10ml',
+    normalizedName: 'adrenaline1mg10ml',
     genericName: 'Epinephrine',
     strength: '1mg/10ml',
     form: 'Min-I-Jet',
     route: 'IV',
     unit: 'syringes',
-    minStockLevel: 5,
+    maxStockLevel: 20,
+    minStockLevel: 6,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm2',
-    name: 'Atropine 600mcg',
+    displayName: 'Atropine 600mcg',
+    normalizedName: 'atropine600mcg',
     genericName: 'Atropine Sulfate',
     strength: '600mcg',
     form: 'Ampoule',
     route: 'IV/IM',
     unit: 'ampoules',
-    minStockLevel: 10,
+    maxStockLevel: 30,
+    minStockLevel: 9,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm3',
-    name: 'Midazolam 5mg/5ml',
+    displayName: 'Midazolam 5mg/5ml',
+    normalizedName: 'midazolam5mg5ml',
     genericName: 'Midazolam',
     strength: '5mg/5ml',
     form: 'Ampoule',
     route: 'IV',
     unit: 'ampoules',
+    maxStockLevel: 15,
     minStockLevel: 5,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm4',
-    name: 'Ketamine 50mg/5ml',
+    displayName: 'Ketamine 50mg/5ml',
+    normalizedName: 'ketamine50mg5ml',
     genericName: 'Ketamine',
     strength: '50mg/5ml',
     form: 'Vial',
     route: 'IV/IM',
     unit: 'vials',
+    maxStockLevel: 10,
     minStockLevel: 3,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm5',
-    name: 'Tranexamic Acid 500mg',
+    displayName: 'Tranexamic Acid 500mg',
+    normalizedName: 'tranexamicacid500mg',
     genericName: 'Tranexamic Acid',
     strength: '500mg',
     form: 'Ampoule',
     route: 'IV',
     unit: 'ampoules',
+    maxStockLevel: 20,
     minStockLevel: 6,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm6',
-    name: 'Ceftriaxone 1g',
+    displayName: 'Ceftriaxone 1g',
+    normalizedName: 'ceftriaxone1g',
     genericName: 'Ceftriaxone',
     strength: '1g',
     form: 'Vial (Powder)',
     route: 'IV',
     unit: 'vials',
-    minStockLevel: 10,
+    maxStockLevel: 30,
+    minStockLevel: 9,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm7',
-    name: 'Paracetamol 1g/100ml',
+    displayName: 'Paracetamol 1g/100ml',
+    normalizedName: 'paracetamol1g100ml',
     genericName: 'Paracetamol',
     brandName: 'Perfalgan',
     strength: '1g/100ml',
     form: 'Infusion Bottle',
     route: 'IV',
     unit: 'bottles',
-    minStockLevel: 20,
+    maxStockLevel: 60,
+    minStockLevel: 18,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
   {
     id: 'm8',
-    name: 'Salbutamol 2.5mg/2.5ml',
+    displayName: 'Salbutamol 2.5mg/2.5ml',
+    normalizedName: 'salbutamol25mg25ml',
     genericName: 'Salbutamol',
     strength: '2.5mg/2.5ml',
     form: 'Nebule',
     route: 'Inhalation',
     unit: 'nebules',
+    maxStockLevel: 100,
     minStockLevel: 30,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   },
 ];
 
 const generateMockInventory = (): InventoryItem[] => {
   const items: InventoryItem[] = [];
   let idCounter = 1;
+  const now = new Date().toISOString();
   
+  // Helper to find min/max stock
+  const getLevels = (medId: string) => {
+    const med = mockMedications.find(m => m.id === medId);
+    return {
+      maxStockLevel: med?.maxStockLevel || 10,
+      minStockLevel: med?.minStockLevel || 3
+    };
+  };
+
   // Resus Bay 1 Trolley
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm1', quantity: 6, expiryDate: '2027-05-01', lastCheckedAt: new Date(Date.now() - 86400000).toISOString() });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm2', quantity: 12, expiryDate: '2026-10-15', lastCheckedAt: new Date(Date.now() - 86400000).toISOString() });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm3', quantity: 4, expiryDate: '2026-08-20', lastCheckedAt: new Date(Date.now() - 86400000).toISOString() });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm1', currentQuantity: 6, ...getLevels('m1'), expiryDate: '2027-05-01', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm2', currentQuantity: 12, ...getLevels('m2'), expiryDate: '2026-10-15', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm3', currentQuantity: 4, ...getLevels('m3'), expiryDate: '2026-08-20', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
   
   // Resus Bay 2 Trolley
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm1', quantity: 5, expiryDate: '2027-01-10', lastCheckedAt: new Date(Date.now() - 172800000).toISOString() });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm2', quantity: 9, expiryDate: '2026-06-30' }); // Expiring somewhat soon
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm4', quantity: 3, expiryDate: '2028-02-15' });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm1', currentQuantity: 5, ...getLevels('m1'), expiryDate: '2027-01-10', lastCheckedAt: new Date(Date.now() - 172800000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm2', currentQuantity: 9, ...getLevels('m2'), expiryDate: '2026-06-30', updatedAt: now }); // Expiring somewhat soon
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm4', currentQuantity: 3, ...getLevels('m4'), expiryDate: '2028-02-15', updatedAt: now });
 
   // Red Zone
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm5', quantity: 10, expiryDate: '2026-11-01' });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm6', quantity: 25, expiryDate: '2027-03-15' });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm7', quantity: 15, expiryDate: '2025-08-10' }); // Expiring very soon!
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm5', currentQuantity: 10, ...getLevels('m5'), expiryDate: '2026-11-01', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm6', currentQuantity: 25, ...getLevels('m6'), expiryDate: '2027-03-15', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm7', currentQuantity: 15, ...getLevels('m7'), expiryDate: '2025-08-10', updatedAt: now }); // Expiring very soon!
   
   // Fridge
-  // (Assuming some meds need fridge, e.g. Ceftriaxone reconstituted, or others)
-  // We'll put some generic stuff there for demo
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l4', medicationId: 'm3', quantity: 10, expiryDate: '2026-12-01' });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l4', medicationId: 'm3', currentQuantity: 10, ...getLevels('m3'), expiryDate: '2026-12-01', updatedAt: now });
 
   return items;
 };

@@ -9,8 +9,8 @@ export const Inventory = () => {
   const filteredInventory = useMemo(() => {
     return inventory.filter(inv => {
       const med = medications.find(m => m.id === inv.medicationId);
-      return med?.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-             med?.genericName.toLowerCase().includes(searchQuery.toLowerCase());
+      return (med?.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+             (med?.genericName || '').toLowerCase().includes(searchQuery.toLowerCase());
     });
   }, [inventory, medications, searchQuery]);
 
@@ -47,19 +47,19 @@ export const Inventory = () => {
               const med = medications.find(m => m.id === inv.medicationId);
               if (!med) return null;
 
-              const isLowStock = inv.quantity <= med.minStockLevel;
+              const isLowStock = inv.currentQuantity <= inv.minStockLevel;
 
               return (
                 <div key={inv.id} className="p-4 md:px-6 md:py-4 hover:bg-slate-50 transition-colors flex flex-col md:grid md:grid-cols-12 gap-4 md:items-center">
                   
                   <div className="md:col-span-8 flex flex-col">
-                    <h3 className="font-bold text-slate-800 text-sm md:text-base">{med.name}</h3>
-                    <p className="text-xs text-slate-500">{med.genericName} • {med.form}</p>
+                    <h3 className="font-bold text-slate-800 text-sm md:text-base">{med.displayName}</h3>
+                    <p className="text-xs text-slate-500">{med.genericName || ''} {med.form ? `• ${med.form}` : ''}</p>
                   </div>
 
                   <div className="md:col-span-2 flex items-center justify-between md:block md:text-right">
                     <span className="md:hidden text-xs text-slate-500 uppercase font-bold">Qty</span>
-                    <span className="font-bold text-lg text-slate-800">{inv.quantity}</span>
+                    <span className="font-bold text-lg text-slate-800">{inv.currentQuantity}</span>
                   </div>
 
                   <div className="md:col-span-2 flex justify-end">

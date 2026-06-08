@@ -38,8 +38,8 @@ export const DailyCheck = () => {
     
     const submitData = locationItems.map(item => ({
       inventoryId: item.id,
-      expectedQty: item.quantity,
-      actualQty: checkedItems[item.id] ?? item.quantity,
+      expectedQty: item.currentQuantity,
+      actualQty: checkedItems[item.id] ?? item.currentQuantity,
     }));
 
     await submitDailyCheck(submitData);
@@ -109,7 +109,7 @@ export const DailyCheck = () => {
                   item={item}
                   medication={med}
                   onConfirm={qty => handleConfirmQty(item.id, qty)}
-                  onEdit={() => setEditingItem({ invId: item.id, currentQty: item.quantity })}
+                  onEdit={() => setEditingItem({ invId: item.id, currentQty: item.currentQuantity })}
                 />
               );
             })}

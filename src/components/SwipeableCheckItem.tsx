@@ -33,7 +33,7 @@ export const SwipeableCheckItem = ({ item, medication, onConfirm, onEdit }: Prop
       // Swipe Right -> Correct
       setIsChecked(true);
       await controls.start({ x: 500, opacity: 0, transition: { duration: 0.2 } });
-      onConfirm(item.quantity);
+      onConfirm(item.currentQuantity);
     } else if (offset < -100 || velocity < -500) {
       // Swipe Left -> Edit/Discrepancy
       await controls.start({ x: 0, transition: { type: 'spring', bounce: 0.5 } });
@@ -78,7 +78,7 @@ export const SwipeableCheckItem = ({ item, medication, onConfirm, onEdit }: Prop
             <h3 className="font-bold text-slate-800 text-lg leading-tight">{medication.name}</h3>
             <div className="text-right">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Expected</p>
-              <p className="font-bold text-xl text-slate-800">{item.quantity}</p>
+              <p className="font-bold text-xl text-slate-800">{item.currentQuantity}</p>
             </div>
           </div>
           
