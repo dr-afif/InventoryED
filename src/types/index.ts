@@ -63,5 +63,5 @@ export interface User {
   initials: string;
   email?: string;
   pin?: string;
+  status?: 'pending' | 'approved' | 'rejected';
 }
-

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, ClipboardCheck, Package, History, Settings, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -12,12 +13,20 @@ const baseNavItems = [
   { icon: History, label: 'Logs', path: '/logs' },
 ];
 
+import { PendingApproval } from './PendingApproval';
+import { ProfileModal } from './ProfileModal';
+
 export const Layout = () => {
   const { currentUser, signOut } = useStore();
   const location = useLocation();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   if (!currentUser) {
     return <SignIn />;
+  }
+
+  if (currentUser.status === 'pending') {
+    return <PendingApproval />;
   }
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'supervisor';
@@ -66,21 +75,24 @@ export const Layout = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center justify-between px-2 py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold border border-slate-200">
-                {currentUser?.initials}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{currentUser?.name}</p>
-                <p className="text-xs text-slate-500 capitalize">{currentUser?.role}</p>
-              </div>
+        <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+          <button 
+            onClick={() => setIsProfileModalOpen(true)}
+            className="flex-1 flex items-center gap-3 px-2 py-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer text-left"
+            title="Profile Settings"
+          >
+            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold border border-slate-200">
+              {currentUser?.initials}
             </div>
-            <button onClick={handleSignOut} className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors" title="Sign Out">
-              <LogOut size={18} />
-            </button>
-          </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{currentUser?.name}</p>
+              <p className="text-xs text-slate-500 capitalize">{currentUser?.role}</p>
+            </div>
+          </button>
+          
+          <button onClick={signOut} className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors ml-2 shrink-0" title="Sign Out">
+            <LogOut size={18} />
+          </button>
         </div>
       </aside>
 
@@ -94,10 +106,19 @@ export const Layout = () => {
             </div>
             <h1 className="font-bold text-lg tracking-tight text-slate-800">InventoryED</h1>
           </div>
-          <button onClick={handleSignOut} className="flex items-center gap-1.5 bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-full transition-colors" title="Sign Out">
-            <LogOut size={13} className="text-rose-500" />
-            <span className="text-xs font-bold uppercase">Sign Out</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsProfileModalOpen(true)} className="flex items-center gap-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 px-3 py-1.5 rounded-full transition-colors" title="Profile Settings">
+              <div className="w-5 h-5 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-[10px] font-bold">
+                {currentUser?.initials}
+              </div>
+              <span className="text-xs font-bold uppercase hidden sm:inline">Profile</span>
+            </button>
+            
+            <button onClick={signOut} className="flex items-center gap-1.5 bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-full transition-colors" title="Sign Out">
+              <LogOut size={13} className="text-rose-500" />
+              <span className="text-xs font-bold uppercase hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
         </header>
 
         {/* Scrollable Page Content wrapped with PullToRefresh */}
@@ -133,6 +154,11 @@ export const Layout = () => {
         </nav>
       </main>
 
+      {/* Profile & Settings Modal */}
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+      />
     </div>
   );
 };

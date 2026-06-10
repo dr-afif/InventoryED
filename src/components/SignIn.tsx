@@ -13,12 +13,15 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SignIn = () => {
-  const { signIn, isSupabaseConnected } = useStore();
+  const { signIn, signUp, isSupabaseConnected } = useStore();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,8 +32,13 @@ export const SignIn = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+    if (!email || !password || (isSignUp && !name)) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    if (isSignUp && !email.toLowerCase().endsWith('@upm.edu.my')) {
+      setError('Only @upm.edu.my email addresses are allowed to register.');
       return;
     }
 
@@ -38,11 +46,20 @@ export const SignIn = () => {
     setError(null);
 
     try {
-      const result = await signIn(email, password);
-      if (result.success) {
-        setSuccess(true);
+      if (isSignUp) {
+        const result = await signUp(email, password, name);
+        if (result.success) {
+          setSuccess(true);
+        } else {
+          setError(result.error || 'Registration failed.');
+        }
       } else {
-        setError(result.error || 'Invalid credentials.');
+        const result = await signIn(email, password);
+        if (result.success) {
+          setSuccess(true);
+        } else {
+          setError(result.error || 'Invalid credentials.');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
@@ -143,8 +160,12 @@ export const SignIn = () => {
         >
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-lg font-bold text-slate-200">System Sign-In</h2>
-              <p className="text-xs text-slate-400 mt-1">Authenticate to access emergency medicine logs and storage</p>
+              <h2 className="text-lg font-bold text-slate-200">
+                {isSignUp ? 'System Registration' : 'System Sign-In'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                {isSignUp ? 'Create a clinical account (@upm.edu.my required)' : 'Authenticate to access emergency medicine logs and storage'}
+              </p>
             </div>
 
             {/* Error Notification */}
@@ -163,6 +184,27 @@ export const SignIn = () => {
             </AnimatePresence>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name Input (Sign Up Only) */}
+              {isSignUp && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                      <UserIcon size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      required={isSignUp}
+                      disabled={isLoading || success}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Dr. Jane Doe"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Email Input */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
@@ -223,9 +265,23 @@ export const SignIn = () => {
                 ) : success ? (
                   <span>Access Granted...</span>
                 ) : (
-                  <span>Access Terminal</span>
+                  <span>{isSignUp ? 'Register Account' : 'Access Terminal'}</span>
                 )}
               </button>
+              
+              {/* Toggle Sign In / Sign Up */}
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError(null);
+                  }}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
+                >
+                  {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Register'}
+                </button>
+              </div>
             </form>
 
             {/* Divider */}

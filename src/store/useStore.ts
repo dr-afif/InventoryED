@@ -22,8 +22,11 @@ interface AppState {
   // Actions
   setCurrentUser: (user: User | null) => void;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error: string | null }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ success: boolean; error: string | null }>;
   signOut: () => Promise<void>;
+  updatePassword: (password: string) => Promise<{ success: boolean; error: string | null }>;
   addUser: (user: { name: string; email: string; password?: string; role: 'admin' | 'supervisor' | 'staff'; initials: string }) => Promise<{ success: boolean; error: string | null }>;
+  updateUserStatus: (userId: string, status: 'pending' | 'approved' | 'rejected') => Promise<{ success: boolean; error: string | null }>;
   updateUser: (email: string, user: { name: string; role: 'admin' | 'supervisor' | 'staff'; initials: string }) => Promise<{ success: boolean; error: string | null }>;
   deleteUser: (email: string, id?: string) => Promise<{ success: boolean; error: string | null }>;
   fetchInitialData: () => Promise<void>;
@@ -152,6 +155,7 @@ export const useStore = create<AppState>()(
               role: (profile?.role || data.user.user_metadata?.role || 'staff') as 'admin' | 'supervisor' | 'staff',
               initials: profile?.initials || data.user.user_metadata?.initials || data.user.email?.slice(0, 2).toUpperCase() || 'US',
               email: data.user.email,
+              status: profile?.status || 'pending',
             };
 
             set({ currentUser: loggedInUser });
@@ -164,11 +168,66 @@ export const useStore = create<AppState>()(
         }
       },
 
+      signUp: async (email, password, name) => {
+        if (!isSupabaseConfigured()) {
+          return { success: false, error: 'Sign up requires a live Supabase connection.' };
+        }
+
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                name,
+                initials: name.substring(0, 2).toUpperCase(),
+              }
+            }
+          });
+
+          if (error) throw error;
+          
+          if (data.user) {
+            // Force create profile with pending status
+            const { error: profileError } = await supabase.from('profiles').insert({
+              id: data.user.id,
+              email: data.user.email,
+              name: name,
+              role: 'staff',
+              initials: name.substring(0, 2).toUpperCase(),
+              status: 'pending'
+            });
+            
+            if (profileError) console.error('Error creating profile:', profileError);
+            
+            return { success: true, error: null };
+          }
+          return { success: false, error: 'Sign up failed.' };
+        } catch (err: any) {
+          console.error('Sign up error:', err);
+          return { success: false, error: err.message || 'An error occurred during sign up.' };
+        }
+      },
+
       signOut: async () => {
         if (isSupabaseConfigured()) {
           await supabase.auth.signOut();
         }
         set({ currentUser: null });
+      },
+
+      updatePassword: async (password: string) => {
+        if (!isSupabaseConfigured()) {
+          return { success: false, error: 'Cannot update password in offline mode.' };
+        }
+        try {
+          const { error } = await supabase.auth.updateUser({ password });
+          if (error) throw error;
+          return { success: true, error: null };
+        } catch (err: any) {
+          console.error('Update password error:', err);
+          return { success: false, error: err.message || 'Failed to update password.' };
+        }
       },
 
       addUser: async (newUser) => {
@@ -250,6 +309,27 @@ export const useStore = create<AppState>()(
         } catch (err: any) {
           console.error('Error adding user:', err);
           return { success: false, error: err.message || 'An error occurred.' };
+        }
+      },
+
+      updateUserStatus: async (userId, status) => {
+        if (!isSupabaseConfigured()) {
+          set((state) => ({
+            users: state.users.map(u => u.id === userId ? { ...u, status } : u)
+          }));
+          return { success: true, error: null };
+        }
+        
+        try {
+          const { error } = await supabase.from('profiles').update({ status }).eq('id', userId);
+          if (error) throw error;
+          
+          set((state) => ({
+            users: state.users.map(u => u.id === userId ? { ...u, status } : u)
+          }));
+          return { success: true, error: null };
+        } catch (err: any) {
+          return { success: false, error: err.message || 'Failed to update user status.' };
         }
       },
 
@@ -432,6 +512,7 @@ export const useStore = create<AppState>()(
                   role: p.role as 'admin' | 'supervisor' | 'staff',
                   initials: p.initials,
                   email: p.email || undefined,
+                  status: p.status || 'pending',
                 }));
               }
             }
@@ -446,6 +527,7 @@ export const useStore = create<AppState>()(
                   role: p.role as 'admin' | 'supervisor' | 'staff',
                   initials: p.initials,
                   email: p.email || undefined,
+                  status: p.status || 'pending',
                 }));
               }
             } catch (profileErr) {

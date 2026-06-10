@@ -6,7 +6,7 @@ import type { User } from '../types';
 import { parseMedicationBulkText, normalizeMedicationName, type ParsedMedicationImportRow } from '../utils/medicationParser';
 
 export const Admin = () => {
-  const { medications, addStock, addMedication, addBulkMedications, currentUser, users } = useStore();
+  const { medications, addStock, addMedication, addBulkMedications, currentUser, users, updateUserStatus } = useStore();
   
   const [activeTab, setActiveTab] = useState<'restock' | 'new_med' | 'users'>('restock');
   const [successMessage, setSuccessMessage] = useState('');
@@ -468,15 +468,72 @@ export const Admin = () => {
               className="grid grid-cols-1 md:grid-cols-12 gap-6"
             >
               {/* Left Side: Users List */}
-              <div className="md:col-span-7 space-y-4">
+              <div className="md:col-span-7 space-y-6">
+                {/* PENDING APPROVALS */}
+                {users.filter(u => u.status === 'pending').length > 0 && (
+                  <div className="card p-5 border-amber-200 bg-amber-50/30">
+                    <h3 className="font-bold text-slate-800 text-base mb-4 flex items-center gap-2 border-b border-amber-100 pb-3">
+                      <AlertTriangle size={18} className="text-amber-500" />
+                      Pending Approvals ({users.filter(u => u.status === 'pending').length})
+                    </h3>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                      {users.filter(u => u.status === 'pending').map(u => (
+                        <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-amber-100 bg-white shadow-sm gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 font-bold flex items-center justify-center border border-amber-200 text-sm">
+                              {u.initials}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-800 text-sm leading-snug">{u.name}</h4>
+                              <p className="text-[10px] text-slate-500 font-mono select-all">{u.email || u.id}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const res = await updateUserStatus(u.id, 'approved');
+                                if (res.success) {
+                                  setSuccessMessage(`User ${u.name} approved.`);
+                                  setTimeout(() => setSuccessMessage(''), 3000);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-success/10 text-success hover:bg-success hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <CheckCircle2 size={14} /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if(confirm('Are you sure you want to reject this user?')) {
+                                  const res = await updateUserStatus(u.id, 'rejected');
+                                  if (res.success) {
+                                    setSuccessMessage(`User ${u.name} rejected.`);
+                                    setTimeout(() => setSuccessMessage(''), 3000);
+                                  }
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Reject User"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ACTIVE USERS */}
                 <div className="card p-5">
                   <h3 className="font-bold text-slate-800 text-base mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
                     <Users size={18} className="text-primary-600" />
-                    Clinical Profiles ({users.length})
+                    Active Profiles ({users.filter(u => u.status !== 'pending' && u.status !== 'rejected').length})
                   </h3>
                   
                   <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
-                    {users.map(u => (
+                    {users.filter(u => u.status !== 'pending' && u.status !== 'rejected').map(u => (
                       <div key={u.id} className="flex items-center justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-slate-200 text-slate-700 font-bold flex items-center justify-center border border-slate-300/30 text-sm">
