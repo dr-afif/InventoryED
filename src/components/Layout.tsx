@@ -36,9 +36,7 @@ export const Layout = () => {
     ...(isAdmin ? [{ icon: Settings, label: 'Manage', path: '/admin' }] : []),
   ];
 
-  const handleSignOut = async () => {
-    await signOut();
-  };
+
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-slate-900">
