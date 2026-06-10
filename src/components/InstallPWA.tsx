@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, X } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const InstallPWA = () => {
