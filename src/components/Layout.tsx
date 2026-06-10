@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { Home, ClipboardCheck, Package, History, Settings, LogOut } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { SignIn } from './SignIn';
+import { PullToRefresh } from './PullToRefresh';
 import clsx from 'clsx';
 
 const baseNavItems = [
@@ -99,10 +100,15 @@ export const Layout = () => {
           </button>
         </header>
 
-        {/* Scrollable Page Content */}
-        <div className="flex-1 overflow-y-auto w-full pb-20 md:pb-0 scroll-smooth">
-          <Outlet />
-        </div>
+        {/* Scrollable Page Content wrapped with PullToRefresh */}
+        <PullToRefresh onRefresh={async () => {
+          // If you want a full PWA reload instead of just data fetch:
+          window.location.reload();
+        }}>
+          <div className="pb-20 md:pb-0 min-h-full">
+            <Outlet />
+          </div>
+        </PullToRefresh>
 
         {/* Mobile Bottom Navigation */}
         <nav className="md:hidden absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center pb-safe z-20 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">

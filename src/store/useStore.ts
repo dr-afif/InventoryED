@@ -14,6 +14,7 @@ interface AppState {
   auditLogs: AuditLog[];
   isSupabaseConnected: boolean;
   isLoading: boolean;
+  draftDailyCheck: Record<string, number>;
 
   // Helpers
   getCentralLocation: () => Location | null;
@@ -28,6 +29,8 @@ interface AppState {
   fetchInitialData: () => Promise<void>;
   
   // Daily Check Actions
+  setDraftDailyCheck: (draft: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
+  clearDraftDailyCheck: () => void;
   submitDailyCheck: (
     checkedItems: { inventoryId: string, expectedQty: number, actualQty: number }[]
   ) => Promise<void>;
@@ -102,6 +105,7 @@ export const useStore = create<AppState>()(
       auditLogs: [],
       isSupabaseConnected: false,
       isLoading: false,
+      draftDailyCheck: {},
 
       getCentralLocation: () => {
         const locs = get().locations;
@@ -477,6 +481,12 @@ export const useStore = create<AppState>()(
           set({ isLoading: false });
         }
       },
+
+      setDraftDailyCheck: (draft) => set((state) => ({ 
+        draftDailyCheck: typeof draft === 'function' ? draft(state.draftDailyCheck) : draft 
+      })),
+
+      clearDraftDailyCheck: () => set({ draftDailyCheck: {} }),
 
       submitDailyCheck: async (checkedItems) => {
         const { currentUser, inventory, addAuditLog, getCentralLocation } = get();

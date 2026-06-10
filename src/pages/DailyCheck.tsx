@@ -1,35 +1,65 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { SwipeableCheckItem } from '../components/SwipeableCheckItem';
-import { CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Search, Filter, Minus, Plus, AlertOctagon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
 
 export const DailyCheck = () => {
-  const { inventory, medications, submitDailyCheck } = useStore();
+  const { inventory, medications, submitDailyCheck, draftDailyCheck, setDraftDailyCheck } = useStore();
   
-  // Checking State
-  const [checkedItems, setCheckedItems] = useState<Record<string, number>>({});
-  const [editingItem, setEditingItem] = useState<{ invId: string, currentQty: number } | null>(null);
+  const checkedItems = draftDailyCheck;
+  const setCheckedItems = setDraftDailyCheck;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'unchecked' | 'checked' | 'discrepancy'>('all');
 
-  // Since we use a centralized inventory, we check all items
   const locationItems = inventory;
+  const totalItemsCount = locationItems.length;
+  const checkedItemsCount = Object.keys(checkedItems).length;
+  const progressPercentage = totalItemsCount > 0 ? Math.round((checkedItemsCount / totalItemsCount) * 100) : 0;
+  
+  const isComplete = totalItemsCount > 0 && checkedItemsCount === totalItemsCount;
 
-  const itemsLeftToCheck = locationItems.filter(item => checkedItems[item.id] === undefined);
-  const isComplete = locationItems.length > 0 && itemsLeftToCheck.length === 0;
+  // Derive filtered items
+  const filteredItems = useMemo(() => {
+    return locationItems.filter(item => {
+      const med = medications.find(m => m.id === item.medicationId);
+      if (!med) return false;
 
-  const handleConfirmQty = (invId: string, qty: number) => {
-    setCheckedItems(prev => ({ ...prev, [invId]: qty }));
+      // Search match
+      const searchMatch = (med.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (med.genericName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      if (!searchMatch) return false;
+
+      // Filter match
+      const isChecked = checkedItems[item.id] !== undefined;
+      const isDiscrepancy = isChecked && checkedItems[item.id] !== item.currentQuantity;
+
+      switch (filterTab) {
+        case 'unchecked': return !isChecked;
+        case 'checked': return isChecked && !isDiscrepancy;
+        case 'discrepancy': return isDiscrepancy;
+        default: return true;
+      }
+    });
+  }, [locationItems, medications, searchQuery, filterTab, checkedItems]);
+
+  const handleUpdateQty = (invId: string, delta: number, currentQty: number, expectedQty: number) => {
+    const baseQty = checkedItems[invId] !== undefined ? checkedItems[invId] : currentQty;
+    const newQty = Math.max(0, baseQty + delta);
+    setCheckedItems(prev => ({ ...prev, [invId]: newQty }));
   };
 
-  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const qty = Number(formData.get('quantity'));
-    if (editingItem) {
-      handleConfirmQty(editingItem.invId, qty);
-      setEditingItem(null);
+  const handleSetCorrect = (invId: string, expectedQty: number) => {
+    setCheckedItems(prev => ({ ...prev, [invId]: expectedQty }));
+  };
+
+  const handleMarkDiscrepancy = (invId: string, expectedQty: number) => {
+    // If it's already a discrepancy, don't do anything special, otherwise just set it to 0 so the user is forced to correct it
+    if (checkedItems[invId] === expectedQty || checkedItems[invId] === undefined) {
+      setCheckedItems(prev => ({ ...prev, [invId]: 0 }));
     }
   };
 
@@ -50,6 +80,8 @@ export const DailyCheck = () => {
   const reset = () => {
     setCheckedItems({});
     setIsSuccess(false);
+    setSearchQuery('');
+    setFilterTab('all');
   };
 
   if (isSuccess) {
@@ -74,111 +106,187 @@ export const DailyCheck = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex flex-col h-full bg-slate-50 relative pb-[100px] md:pb-[80px]">
       
-      {/* HEADER */}
-      <div className="bg-white px-4 py-4 border-b border-slate-200 sticky top-0 z-20">
+      {/* HEADER & FILTERS */}
+      <div className="bg-white px-4 py-4 border-b border-slate-200 sticky top-0 z-20 shadow-sm space-y-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 leading-tight">Central ED Inventory Check</h2>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            {isComplete ? 'All items checked' : `${itemsLeftToCheck.length} items remaining`}
-          </p>
+          <h2 className="text-xl font-bold text-slate-800 leading-tight">Daily Stock Check</h2>
+          
+          {/* Progress Bar */}
+          <div className="mt-3 flex items-center gap-3">
+            <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-primary-500" 
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercentage}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <span className="text-xs font-bold text-slate-500 w-16 text-right">
+              {checkedItemsCount} / {totalItemsCount}
+            </span>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search medications..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-primary-500 outline-none transition-colors"
+          />
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {(['all', 'unchecked', 'checked', 'discrepancy'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setFilterTab(tab)}
+              className={clsx(
+                "px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors",
+                filterTab === tab 
+                  ? "bg-slate-800 text-white" 
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              )}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
-        <div className="max-w-xl mx-auto pb-24">
-          
-          {/* INSTRUCTIONS */}
-          {!isComplete && itemsLeftToCheck.length === locationItems.length && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-blue-50 text-blue-800 p-4 rounded-xl mb-6 flex gap-3 text-sm border border-blue-100">
-              <AlertTriangle size={20} className="shrink-0 text-blue-600" />
-              <p><strong>Swipe right</strong> to confirm correct quantity. <strong>Swipe left</strong> to report a discrepancy or edit.</p>
-            </motion.div>
-          )}
-
-          {/* LIST */}
+      {/* LIST CONTENT */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="max-w-2xl mx-auto space-y-4">
           <AnimatePresence>
-            {itemsLeftToCheck.map((item) => {
+            {filteredItems.map(item => {
               const med = medications.find(m => m.id === item.medicationId);
               if (!med) return null;
+
+              const expectedQty = item.currentQuantity;
+              const actualQty = checkedItems[item.id];
+              const isChecked = actualQty !== undefined;
+              const isDiscrepancy = isChecked && actualQty !== expectedQty;
+
               return (
-                <SwipeableCheckItem
+                <motion.div
                   key={item.id}
-                  item={item}
-                  medication={med}
-                  onConfirm={qty => handleConfirmQty(item.id, qty)}
-                  onEdit={() => setEditingItem({ invId: item.id, currentQty: item.currentQuantity })}
-                />
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className={clsx(
+                    "p-4 rounded-2xl border transition-all duration-300",
+                    isDiscrepancy ? "bg-danger/5 border-danger/30" : 
+                    isChecked ? "bg-success/5 border-success/30 opacity-70 hover:opacity-100" : 
+                    "bg-white border-slate-200 shadow-sm"
+                  )}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-bold text-slate-800 leading-tight">
+                        {med.displayName || med.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Expected: <span className="font-bold">{expectedQty}</span>
+                      </p>
+                    </div>
+                    
+                    {isDiscrepancy && (
+                      <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-danger bg-danger/10 px-2 py-1 rounded-md">
+                        <AlertOctagon size={12} /> Discrepancy
+                      </span>
+                    )}
+                    {isChecked && !isDiscrepancy && (
+                      <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-success bg-success/10 px-2 py-1 rounded-md">
+                        <CheckCircle2 size={12} /> Checked
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {/* Input Controls */}
+                    <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex-1 max-w-[160px]">
+                      <button 
+                        onClick={() => handleUpdateQty(item.id, -1, expectedQty, expectedQty)}
+                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                      >
+                        <Minus size={18} />
+                      </button>
+                      
+                      <div className="flex-1 text-center font-bold text-lg text-slate-800 bg-white py-2 border-x border-slate-200">
+                        {actualQty !== undefined ? actualQty : expectedQty}
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleUpdateQty(item.id, 1, expectedQty, expectedQty)}
+                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex gap-2 flex-1">
+                      <button 
+                        onClick={() => handleSetCorrect(item.id, expectedQty)}
+                        className={clsx(
+                          "flex-1 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
+                          isChecked && !isDiscrepancy 
+                            ? "bg-success text-white" 
+                            : "bg-slate-100 text-slate-600 hover:bg-success hover:text-white"
+                        )}
+                      >
+                        <CheckCircle2 size={16} /> Correct
+                      </button>
+                      <button 
+                        onClick={() => handleMarkDiscrepancy(item.id, expectedQty)}
+                        className={clsx(
+                          "flex-1 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
+                          isDiscrepancy
+                            ? "bg-danger text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-danger hover:text-white"
+                        )}
+                      >
+                        <AlertTriangle size={16} /> Mark Disc.
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
               );
             })}
           </AnimatePresence>
 
-          {/* COMPLETION STATE */}
-          {isComplete && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card p-8 text-center space-y-4 border-success/30 bg-success/5 mt-8">
-              <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto text-success">
-                <CheckCircle2 size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-800">Ready to Submit</h3>
-              <p className="text-slate-600 text-sm">All medications have been verified.</p>
-              
-              <button 
-                onClick={finishCheck} 
-                disabled={isSubmitting}
-                className="btn-primary w-full mt-4"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Daily Check'}
-              </button>
-            </motion.div>
+          {filteredItems.length === 0 && (
+            <div className="text-center p-8 text-slate-500">
+              <Filter size={32} className="mx-auto mb-3 opacity-20" />
+              <p className="text-sm">No medications match your filter criteria.</p>
+            </div>
           )}
         </div>
       </div>
 
-      {/* EDIT MODAL OVERLAY */}
-      <AnimatePresence>
-        {editingItem && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 z-50 flex items-end md:items-center justify-center"
+      {/* STICKY BOTTOM SUBMIT BAR */}
+      <div className="fixed bottom-0 left-0 right-0 md:pl-64 bg-white border-t border-slate-200 p-4 pb-safe z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+        <div className="max-w-2xl mx-auto flex items-center gap-4">
+          <div className="flex-1 hidden md:block">
+            <p className="text-sm font-bold text-slate-800">{checkedItemsCount} items checked</p>
+            <p className="text-xs text-slate-500">{totalItemsCount - checkedItemsCount} remaining</p>
+          </div>
+          <button 
+            onClick={finishCheck}
+            disabled={isSubmitting || checkedItemsCount === 0}
+            className="btn-primary flex-1 py-3.5 shadow-md shadow-primary-500/20"
           >
-            <motion.div 
-              initial={{ y: '100%' }} 
-              animate={{ y: 0 }} 
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-              className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl"
-            >
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Edit Quantity</h3>
-                <p className="text-slate-500 mb-6 text-sm">Enter the actual quantity counted for this medication.</p>
-                
-                <form onSubmit={handleEditSubmit}>
-                  <div className="mb-6">
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Actual Quantity</label>
-                    <input 
-                      type="number" 
-                      name="quantity"
-                      defaultValue={editingItem.currentQty}
-                      autoFocus
-                      min={0}
-                      className="w-full text-center text-3xl font-bold py-4 rounded-xl border-2 border-slate-200 focus:border-primary-500 focus:ring-0 outline-none transition-colors"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setEditingItem(null)} className="btn-secondary flex-1">Cancel</button>
-                    <button type="submit" className="btn-primary flex-1">Confirm</button>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {isSubmitting ? 'Submitting...' : isComplete ? 'Complete Check' : 'Submit Partial Check'}
+          </button>
+        </div>
+      </div>
 
     </div>
   );
