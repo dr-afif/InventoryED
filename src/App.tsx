@@ -7,6 +7,7 @@ import { DailyCheck } from './pages/DailyCheck';
 import { Inventory } from './pages/Inventory';
 import { Logs } from './pages/Logs';
 import { Admin } from './pages/Admin';
+import { InstallPWA } from './components/InstallPWA';
 
 function App() {
   const fetchInitialData = useStore(state => state.fetchInitialData);
@@ -17,6 +18,7 @@ function App() {
 
   return (
     <BrowserRouter basename="/InventoryED">
+      <InstallPWA />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />

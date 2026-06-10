@@ -272,7 +272,7 @@ export const DailyCheck = () => {
       </div>
 
       {/* STICKY BOTTOM SUBMIT BAR */}
-      <div className="fixed bottom-0 left-0 right-0 md:pl-64 bg-white border-t border-slate-200 p-4 pb-safe z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+      <div className="fixed max-md:bottom-[68px] bottom-0 left-0 right-0 md:pl-64 bg-white border-t border-slate-200 p-4 pb-safe z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           <div className="flex-1 hidden md:block">
             <p className="text-sm font-bold text-slate-800">{checkedItemsCount} items checked</p>
