@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore';
-import { Package, AlertTriangle, Clock, CheckCircle2, ClipboardCheck, AlertOctagon, History, ArrowRight } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle2, ClipboardCheck, AlertOctagon, History, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export const Dashboard = () => {
@@ -29,7 +29,7 @@ export const Dashboard = () => {
   const isCheckedToday = totalItemsCount > 0 && uncheckedCount === 0;
 
   const discrepancyCountToday = auditLogs.filter(log => {
-    return log.action === 'daily_check' && log.quantityChange !== 0 && new Date(log.timestamp) >= todayStart;
+    return log.action === 'check' && log.quantityChange !== 0 && new Date(log.timestamp) >= todayStart;
   }).length;
 
   const dailyCheckProgress = totalItemsCount > 0 ? Math.round((checkedTodayCount / totalItemsCount) * 100) : 0;
@@ -185,7 +185,7 @@ export const Dashboard = () => {
                   return (
                     <div key={inv.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                       <div>
-                        <p className="font-bold text-slate-800 text-sm">{med?.displayName || med?.name}</p>
+                        <p className="font-bold text-slate-800 text-sm">{med?.displayName}</p>
                         <p className="text-xs text-slate-500">{med?.genericName}</p>
                       </div>
                       <div className="text-right">

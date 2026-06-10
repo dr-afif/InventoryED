@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste, ArrowRight, Save, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Medication, User } from '../types';
+import type { User } from '../types';
 import { parseMedicationBulkText, normalizeMedicationName, type ParsedMedicationImportRow } from '../utils/medicationParser';
 
 export const Admin = () => {

@@ -695,7 +695,7 @@ export const useStore = create<AppState>()(
            // For simplicity in this demo, we'll update supabase one by one if updating, 
            // and insert many if inserting
            if (newMeds.length > 0) {
-             const { data: dbMeds } = await supabase.from('medications').insert(
+             const { error: insertError } = await supabase.from('medications').insert(
                newMeds.map(m => ({
                  display_name: m.displayName,
                  normalized_name: m.normalizedName,

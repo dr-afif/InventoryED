@@ -46,7 +46,7 @@ export const DailyCheck = () => {
     });
   }, [locationItems, medications, searchQuery, filterTab, checkedItems]);
 
-  const handleUpdateQty = (invId: string, delta: number, currentQty: number, expectedQty: number) => {
+  const handleUpdateQty = (invId: string, delta: number, currentQty: number) => {
     const baseQty = checkedItems[invId] !== undefined ? checkedItems[invId] : currentQty;
     const newQty = Math.max(0, baseQty + delta);
     setCheckedItems(prev => ({ ...prev, [invId]: newQty }));
@@ -190,7 +190,7 @@ export const DailyCheck = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-bold text-slate-800 leading-tight">
-                        {med.displayName || med.name}
+                        {med.displayName}
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
                         Expected: <span className="font-bold">{expectedQty}</span>
@@ -213,7 +213,7 @@ export const DailyCheck = () => {
                     {/* Input Controls */}
                     <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex-1 max-w-[160px]">
                       <button 
-                        onClick={() => handleUpdateQty(item.id, -1, expectedQty, expectedQty)}
+                        onClick={() => handleUpdateQty(item.id, -1, expectedQty)}
                         className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
                       >
                         <Minus size={18} />
@@ -224,7 +224,7 @@ export const DailyCheck = () => {
                       </div>
                       
                       <button 
-                        onClick={() => handleUpdateQty(item.id, 1, expectedQty, expectedQty)}
+                        onClick={() => handleUpdateQty(item.id, 1, expectedQty)}
                         className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
                       >
                         <Plus size={18} />

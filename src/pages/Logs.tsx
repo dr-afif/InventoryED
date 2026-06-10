@@ -65,7 +65,7 @@ export const Logs = () => {
                     </div>
                     
                     <p className="text-sm text-slate-700 font-medium">
-                      {med?.name}
+                      {med?.displayName}
                     </p>
                     
                     {log.quantityChange !== 0 && (
