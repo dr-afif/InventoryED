@@ -50,28 +50,30 @@ export const Inventory = () => {
               const isLowStock = inv.currentQuantity <= inv.minStockLevel;
 
               return (
-                <div key={inv.id} className="p-4 md:px-6 md:py-4 hover:bg-slate-50 transition-colors flex flex-col md:grid md:grid-cols-12 gap-4 md:items-center">
+                <div key={inv.id} className="p-4 md:px-6 md:py-4 hover:bg-slate-50 transition-colors flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center">
                   
                   <div className="md:col-span-8 flex flex-col">
-                    <h3 className="font-bold text-slate-800 text-sm md:text-base">{med.displayName}</h3>
-                    <p className="text-xs text-slate-500">{med.genericName || ''} {med.form ? `• ${med.form}` : ''}</p>
+                    <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight">{med.displayName}</h3>
+                    <p className="text-xs text-slate-500 mt-1">{med.genericName || ''} {med.form ? `• ${med.form}` : ''}</p>
                   </div>
 
-                  <div className="md:col-span-2 flex items-center justify-between md:block md:text-right">
-                    <span className="md:hidden text-xs text-slate-500 uppercase font-bold">Qty</span>
-                    <span className="font-bold text-lg text-slate-800">{inv.currentQuantity}</span>
-                  </div>
+                  <div className="flex items-center justify-between md:contents">
+                    <div className="md:col-span-2 flex items-center gap-2 md:block md:text-right">
+                      <span className="md:hidden text-[10px] text-slate-500 uppercase font-bold">Stock</span>
+                      <span className="font-bold text-lg text-slate-800">{inv.currentQuantity}</span>
+                    </div>
 
-                  <div className="md:col-span-2 flex justify-end">
-                    {isLowStock ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-danger/10 text-danger text-xs font-bold uppercase">
-                        <AlertTriangle size={14} /> Low
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-success/10 text-success text-xs font-bold uppercase">
-                        OK
-                      </span>
-                    )}
+                    <div className="md:col-span-2 flex justify-end">
+                      {isLowStock ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-danger/10 text-danger text-xs font-bold uppercase">
+                          <AlertTriangle size={14} /> Low
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-success/10 text-success text-xs font-bold uppercase">
+                          OK
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                 </div>

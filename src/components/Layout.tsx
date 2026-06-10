@@ -7,7 +7,7 @@ import clsx from 'clsx';
 
 const baseNavItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
-  { icon: ClipboardCheck, label: 'Daily Check', path: '/check' },
+  { icon: ClipboardCheck, label: 'Weekly Check', path: '/check' },
   { icon: Package, label: 'Inventory', path: '/inventory' },
   { icon: History, label: 'Logs', path: '/logs' },
 ];

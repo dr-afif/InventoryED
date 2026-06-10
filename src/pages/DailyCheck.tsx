@@ -95,7 +95,7 @@ export const DailyCheck = () => {
           <CheckCircle2 size={48} />
         </motion.div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Check Complete</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Weekly Stock Check</h2>
           <p className="text-slate-500 mt-2">Central ED Inventory has been verified.</p>
         </div>
         <button onClick={reset} className="btn-primary w-full md:w-auto">
@@ -111,7 +111,7 @@ export const DailyCheck = () => {
       {/* HEADER & FILTERS */}
       <div className="bg-white px-4 py-4 border-b border-slate-200 sticky top-0 z-20 shadow-sm space-y-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 leading-tight">Daily Stock Check</h2>
+          <h2 className="text-xl font-bold text-slate-800 leading-tight">Weekly Stock Check</h2>
           
           {/* Progress Bar */}
           <div className="mt-3 flex items-center gap-3">
@@ -209,34 +209,34 @@ export const DailyCheck = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center gap-3">
                     {/* Input Controls */}
-                    <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden flex-1 max-w-[160px]">
+                    <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden w-full md:max-w-[160px]">
                       <button 
                         onClick={() => handleUpdateQty(item.id, -1, expectedQty)}
-                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors flex-1 flex justify-center"
                       >
                         <Minus size={18} />
                       </button>
                       
-                      <div className="flex-1 text-center font-bold text-lg text-slate-800 bg-white py-2 border-x border-slate-200">
+                      <div className="flex-1 min-w-[50px] text-center font-bold text-lg text-slate-800">
                         {actualQty !== undefined ? actualQty : expectedQty}
                       </div>
                       
                       <button 
                         onClick={() => handleUpdateQty(item.id, 1, expectedQty)}
-                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors flex-1 flex justify-center"
                       >
                         <Plus size={18} />
                       </button>
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="flex gap-2 flex-1">
+                    <div className="flex gap-2 w-full md:flex-1">
                       <button 
                         onClick={() => handleSetCorrect(item.id, expectedQty)}
                         className={clsx(
-                          "flex-1 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
+                          "flex-1 py-3 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
                           isChecked && !isDiscrepancy 
                             ? "bg-success text-white" 
                             : "bg-slate-100 text-slate-600 hover:bg-success hover:text-white"
@@ -247,7 +247,7 @@ export const DailyCheck = () => {
                       <button 
                         onClick={() => handleMarkDiscrepancy(item.id, expectedQty)}
                         className={clsx(
-                          "flex-1 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
+                          "flex-1 py-3 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
                           isDiscrepancy
                             ? "bg-danger text-white"
                             : "bg-slate-100 text-slate-600 hover:bg-danger hover:text-white"
