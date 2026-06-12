@@ -2,77 +2,17 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 import { 
-  Lock, 
-  Mail, 
   Database, 
   Server, 
   Sparkles, 
   AlertCircle,
-  HelpCircle,
-  ChevronDown,
-  ChevronUp,
-  Eye,
-  EyeOff,
-  Loader2,
-  User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SignIn = () => {
-  const { signIn, signUp, isSupabaseConnected } = useStore();
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const { isSupabaseConnected } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [showDemoHelp, setShowDemoHelp] = useState(true);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password || (isSignUp && !name)) {
-      setError('Please fill in all required fields.');
-      return;
-    }
-
-    if (isSignUp && !email.toLowerCase().endsWith('@upm.edu.my')) {
-      setError('Only @upm.edu.my email addresses are allowed to register.');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (isSignUp) {
-        const result = await signUp(email, password, name);
-        if (result.success) {
-          setSuccess(true);
-        } else {
-          setError(result.error || 'Registration failed.');
-        }
-      } else {
-        const result = await signIn(email, password);
-        if (result.success) {
-          setSuccess(true);
-        } else {
-          setError(result.error || 'Invalid credentials.');
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAutofill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-  };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -161,10 +101,10 @@ export const SignIn = () => {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-lg font-bold text-slate-200">
-                {isSignUp ? 'System Registration' : 'System Sign-In'}
+                System Sign-In
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                {isSignUp ? 'Create a clinical account (@upm.edu.my required)' : 'Authenticate to access emergency medicine logs and storage'}
+                Authenticate using your @upm.edu.my account to access emergency medicine logs and storage
               </p>
             </div>
 
@@ -183,119 +123,12 @@ export const SignIn = () => {
               )}
             </AnimatePresence>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name Input (Sign Up Only) */}
-              {isSignUp && (
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                      <UserIcon size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      required={isSignUp}
-                      disabled={isLoading || success}
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Dr. Jane Doe"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Email Input */}
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Mail size={16} />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    disabled={isLoading || success}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@hospital.com"
-                    className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all disabled:opacity-50"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Passcode / Password</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <Lock size={16} />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    disabled={isLoading || success}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/30 transition-all disabled:opacity-50"
-                  />
-                  <button
-                    type="button"
-                    disabled={isLoading || success}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isLoading || success}
-                className="w-full mt-6 bg-gradient-to-r from-cyan-600 to-primary-600 hover:from-cyan-500 hover:to-primary-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-cyan-500/10 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 cursor-pointer border border-cyan-400/20"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin text-white" />
-                    <span>Verifying Credentials...</span>
-                  </>
-                ) : success ? (
-                  <span>Access Granted...</span>
-                ) : (
-                  <span>{isSignUp ? 'Register Account' : 'Access Terminal'}</span>
-                )}
-              </button>
-              
-              {/* Toggle Sign In / Sign Up */}
-              <div className="text-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setError(null);
-                  }}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
-                >
-                  {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Register'}
-                </button>
-              </div>
-            </form>
-
-            {/* Divider */}
-            <div className="relative flex items-center justify-center my-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest select-none">
-              <div className="absolute inset-x-0 h-px bg-slate-800/80"></div>
-              <span className="relative px-3 bg-slate-900/60 backdrop-blur-md">Or Connect Via</span>
-            </div>
-
             {/* Google Sign-In Button */}
             <button
               type="button"
-              disabled={isLoading || success}
+              disabled={isLoading}
               onClick={handleGoogleSignIn}
-              className="w-full bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-cyan-500/5 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2.5 cursor-pointer"
+              className="w-full mt-4 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-cyan-500/5 active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2.5 cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -303,7 +136,7 @@ export const SignIn = () => {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
               </svg>
-              <span>Sign In with Google</span>
+              <span>{isLoading ? 'Connecting...' : 'Sign In with Google'}</span>
             </button>
           </div>
         </motion.div>
@@ -328,73 +161,6 @@ export const SignIn = () => {
               </span>
             </span>
           </div>
-        </div>
-
-        {/* Demo credentials helper drawer */}
-        <div className="w-full bg-slate-900/30 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-md">
-          <button 
-            onClick={() => setShowDemoHelp(prev => !prev)}
-            className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-900/40 transition-colors text-slate-400 hover:text-slate-200 text-xs font-bold"
-          >
-            <div className="flex items-center gap-2">
-              <HelpCircle size={15} className="text-cyan-400 animate-pulse" />
-              <span>Clinical Test Accounts</span>
-            </div>
-            {showDemoHelp ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-          </button>
-          
-          <AnimatePresence>
-            {showDemoHelp && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="border-t border-slate-800/40 bg-slate-950/40 px-5 py-4 text-slate-400 text-xs font-medium space-y-2.5"
-              >
-                <p className="text-[11px] text-slate-500 mb-1 leading-snug">
-                  Click a card to auto-fill the login form for testing clinical roles:
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAutofill('sarah@inventoryed.com', 'staff123')}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-cyan-500/40 text-left transition-colors cursor-pointer"
-                  >
-                    <div>
-                      <span className="block font-bold text-white text-[11px]">Sarah Jenkins (Staff)</span>
-                      <span className="block text-slate-500 text-[10px]">sarah@inventoryed.com</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/30 border border-cyan-800/20 px-2 py-0.5 rounded font-bold">staff123</span>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => handleAutofill('robert@inventoryed.com', 'super123')}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-cyan-500/40 text-left transition-colors cursor-pointer"
-                  >
-                    <div>
-                      <span className="block font-bold text-white text-[11px]">Dr. Robert Chen (Supervisor)</span>
-                      <span className="block text-slate-500 text-[10px]">robert@inventoryed.com</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-amber-400 bg-amber-950/30 border border-amber-800/20 px-2 py-0.5 rounded font-bold">super123</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleAutofill('admin@inventoryed.com', 'admin123')}
-                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-cyan-500/40 text-left transition-colors cursor-pointer"
-                  >
-                    <div>
-                      <span className="block font-bold text-white text-[11px]">Admin User (Admin)</span>
-                      <span className="block text-slate-500 text-[10px]">admin@inventoryed.com</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-red-400 bg-red-950/30 border border-red-800/20 px-2 py-0.5 rounded font-bold">admin123</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
       </div>
