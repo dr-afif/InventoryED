@@ -153,22 +153,22 @@ const generateMockInventory = (): InventoryItem[] => {
   };
 
   // Resus Bay 1 Trolley
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm1', currentQuantity: 6, ...getLevels('m1'), expiryDate: '2027-05-01', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm2', currentQuantity: 12, ...getLevels('m2'), expiryDate: '2026-10-15', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm3', currentQuantity: 4, ...getLevels('m3'), expiryDate: '2026-08-20', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm1', currentQuantity: 0, ...getLevels('m1'), expiryDate: '2027-05-01', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm2', currentQuantity: 0, ...getLevels('m2'), expiryDate: '2026-10-15', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l1', medicationId: 'm3', currentQuantity: 0, ...getLevels('m3'), expiryDate: '2026-08-20', lastCheckedAt: new Date(Date.now() - 86400000).toISOString(), updatedAt: now });
   
   // Resus Bay 2 Trolley
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm1', currentQuantity: 5, ...getLevels('m1'), expiryDate: '2027-01-10', lastCheckedAt: new Date(Date.now() - 172800000).toISOString(), updatedAt: now });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm2', currentQuantity: 9, ...getLevels('m2'), expiryDate: '2026-06-30', updatedAt: now }); // Expiring somewhat soon
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm4', currentQuantity: 3, ...getLevels('m4'), expiryDate: '2028-02-15', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm1', currentQuantity: 0, ...getLevels('m1'), expiryDate: '2027-01-10', lastCheckedAt: new Date(Date.now() - 172800000).toISOString(), updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm2', currentQuantity: 0, ...getLevels('m2'), expiryDate: '2026-06-30', updatedAt: now }); // Expiring somewhat soon
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l2', medicationId: 'm4', currentQuantity: 0, ...getLevels('m4'), expiryDate: '2028-02-15', updatedAt: now });
 
   // Red Zone
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm5', currentQuantity: 10, ...getLevels('m5'), expiryDate: '2026-11-01', updatedAt: now });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm6', currentQuantity: 25, ...getLevels('m6'), expiryDate: '2027-03-15', updatedAt: now });
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm7', currentQuantity: 15, ...getLevels('m7'), expiryDate: '2025-08-10', updatedAt: now }); // Expiring very soon!
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm5', currentQuantity: 0, ...getLevels('m5'), expiryDate: '2026-11-01', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm6', currentQuantity: 0, ...getLevels('m6'), expiryDate: '2027-03-15', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l3', medicationId: 'm7', currentQuantity: 0, ...getLevels('m7'), expiryDate: '2025-08-10', updatedAt: now }); // Expiring very soon!
   
   // Fridge
-  items.push({ id: `inv_${idCounter++}`, locationId: 'l4', medicationId: 'm3', currentQuantity: 10, ...getLevels('m3'), expiryDate: '2026-12-01', updatedAt: now });
+  items.push({ id: `inv_${idCounter++}`, locationId: 'l4', medicationId: 'm3', currentQuantity: 0, ...getLevels('m3'), expiryDate: '2026-12-01', updatedAt: now });
 
   return items;
 };
