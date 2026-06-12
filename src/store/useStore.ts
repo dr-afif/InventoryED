@@ -247,53 +247,52 @@ export const useStore = create<AppState>()(
         }
 
         try {
-          // 1. Insert into allowed_users table
-          const { error: allowedError } = await supabase.from('allowed_users').insert([{
+          let authId = `manual_${newUser.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+          // Always try to create auth.users if password provided or generated
+          const passwordToUse = newUser.password || Math.random().toString(36).slice(-10) + 'A1!';
+          
+          const tempClient = createClient(
+            import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co',
+            import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder_key',
+            {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+              }
+            }
+          );
+
+          const { data, error } = await tempClient.auth.signUp({
+            email: newUser.email,
+            password: passwordToUse,
+            options: {
+              data: {
+                name: newUser.name,
+                role: newUser.role,
+                initials: newUser.initials
+              }
+            }
+          });
+
+          if (!error && data.user) {
+            authId = data.user.id;
+          }
+
+          // Insert into profiles directly as approved
+          const { error: profileError } = await supabase.from('profiles').insert({
+            id: authId,
             email: newUser.email.toLowerCase(),
             name: newUser.name,
             role: newUser.role,
-            initials: newUser.initials
-          }]);
+            initials: newUser.initials,
+            status: 'approved'
+          });
 
-          if (allowedError) throw allowedError;
-
-          let authId = `allowed_${newUser.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-          // 2. If password provided, sign up using secondary client
-          if (newUser.password) {
-            const tempClient = createClient(
-              import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co',
-              import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder_key',
-              {
-                auth: {
-                  persistSession: false,
-                  autoRefreshToken: false,
-                  detectSessionInUrl: false
-                }
-              }
-            );
-
-            const { data, error } = await tempClient.auth.signUp({
-              email: newUser.email,
-              password: newUser.password,
-              options: {
-                data: {
-                  name: newUser.name,
-                  role: newUser.role,
-                  initials: newUser.initials
-                }
-              }
-            });
-
-            if (error) {
-              // Rollback allowed_users insert if auth signup fails
-              await supabase.from('allowed_users').delete().eq('email', newUser.email.toLowerCase());
-              throw error;
-            }
-
-            if (data.user) {
-              authId = data.user.id;
-            }
+          if (profileError) {
+            console.error('Failed to create profile for user:', profileError);
+            throw profileError;
           }
 
           const addedUser: User = {
@@ -349,9 +348,8 @@ export const useStore = create<AppState>()(
         }
 
         try {
-          // 1. Update allowed_users
-          const { error: allowedError } = await supabase
-            .from('allowed_users')
+          const { error: profileError } = await supabase
+            .from('profiles')
             .update({
               name: updatedFields.name,
               role: updatedFields.role,
@@ -359,30 +357,12 @@ export const useStore = create<AppState>()(
             })
             .eq('email', email.toLowerCase());
 
-          if (allowedError) throw allowedError;
-
-          // 2. Try to update profiles table if it exists
-          const { users } = get();
-          const targetUser = users.find(u => u.id === email || u.name === updatedFields.name);
-          if (targetUser && targetUser.id && !targetUser.id.startsWith('allowed_') && targetUser.id !== email) {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .update({
-                name: updatedFields.name,
-                role: updatedFields.role,
-                initials: updatedFields.initials
-              })
-              .eq('id', targetUser.id);
-              
-            if (profileError) {
-              console.warn("Updated whitelist but profiles update failed:", profileError);
-            }
-          }
+          if (profileError) throw profileError;
 
           // Update local state list
           set((state) => ({
             users: state.users.map((u) => {
-              if (u.id === email || (targetUser && u.id === targetUser.id) || u.email === email) {
+              if (u.email === email.toLowerCase()) {
                 return { ...u, name: updatedFields.name, role: updatedFields.role, initials: updatedFields.initials };
               }
               return u;
@@ -409,29 +389,16 @@ export const useStore = create<AppState>()(
         }
 
         try {
-          // 1. Delete from allowed_users
-          const { error: allowedError } = await supabase
-            .from('allowed_users')
+          const { error: profileError } = await supabase
+            .from('profiles')
             .delete()
             .eq('email', email.toLowerCase());
-
-          if (allowedError) throw allowedError;
-
-          // 2. Delete from profiles (if UUID is available)
-          if (id && !id.startsWith('allowed_') && id !== email) {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .delete()
-              .eq('id', id);
-
-            if (profileError) {
-              console.warn("Deleted from whitelist but profiles delete failed:", profileError);
-            }
-          }
+            
+          if (profileError) throw profileError;
 
           // Update local state list
           set((state) => ({
-            users: state.users.filter((u) => u.id !== email && u.id !== id && u.email !== email)
+            users: state.users.filter((u) => u.email !== email.toLowerCase())
           }));
 
           return { success: true, error: null };
@@ -454,33 +421,52 @@ export const useStore = create<AppState>()(
           // Restore session
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
-            // Verify if user is still allowed
-            const { data: allowedUser } = await supabase
-              .from('allowed_users')
+            // Fetch profile
+            const { data: profile } = await supabase
+              .from('profiles')
               .select('*')
-              .eq('email', session.user.email?.toLowerCase())
+              .eq('id', session.user.id)
               .single();
 
-            if (!allowedUser) {
-              console.warn("Logged in user is no longer on the whitelist. Revoking session.");
-              await supabase.auth.signOut();
-              set({ currentUser: null });
-            } else {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+            let currentUserProfile = profile;
 
-              const loggedInUser: User = {
-                id: session.user.id,
-                name: profile?.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Unknown User',
-                role: (profile?.role || session.user.user_metadata?.role || 'staff') as 'admin' | 'supervisor' | 'staff',
-                initials: profile?.initials || session.user.user_metadata?.initials || session.user.email?.slice(0, 2).toUpperCase() || 'US',
-                email: session.user.email,
-              };
-              set({ currentUser: loggedInUser });
+            // Automatically create profile for Google Sign-In users if it doesn't exist
+            if (!profile) {
+              const email = session.user.email || '';
+              if (email.endsWith('@upm.edu.my')) {
+                const newName = session.user.user_metadata?.name || email.split('@')[0] || 'Unknown';
+                const newProfile = {
+                  id: session.user.id,
+                  email: email,
+                  name: newName,
+                  role: 'staff',
+                  initials: newName.slice(0, 2).toUpperCase(),
+                  status: 'pending' // Users are pending until admin approves
+                };
+                
+                const { error: insertError } = await supabase.from('profiles').insert(newProfile);
+                if (!insertError) {
+                  currentUserProfile = newProfile;
+                } else {
+                  console.error('Failed to auto-create profile:', insertError);
+                }
+              } else {
+                console.warn("User domain is not allowed. Revoking session.");
+                await supabase.auth.signOut();
+                set({ currentUser: null });
+                return;
+              }
             }
+
+            const loggedInUser: User = {
+              id: session.user.id,
+              name: currentUserProfile?.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Unknown User',
+              role: (currentUserProfile?.role || session.user.user_metadata?.role || 'staff') as 'admin' | 'supervisor' | 'staff',
+              initials: currentUserProfile?.initials || session.user.user_metadata?.initials || session.user.email?.slice(0, 2).toUpperCase() || 'US',
+              email: session.user.email,
+              status: currentUserProfile?.status || 'pending',
+            };
+            set({ currentUser: loggedInUser });
           }
 
           const [locRes, medRes, invRes, logRes] = await Promise.all([
@@ -492,47 +478,19 @@ export const useStore = create<AppState>()(
 
           let dbUsers: User[] = [];
           try {
-            // Try fetching from allowed_users first
-            const { data: allowedList } = await supabase.from('allowed_users').select('*');
-            if (allowedList && allowedList.length > 0) {
-              dbUsers = allowedList.map(a => ({
-                id: a.email,
-                name: a.name,
-                role: a.role as 'admin' | 'supervisor' | 'staff',
-                initials: a.initials,
-                email: a.email,
+            const { data: profiles } = await supabase.from('profiles').select('*');
+            if (profiles && profiles.length > 0) {
+              dbUsers = profiles.map(p => ({
+                id: p.id,
+                name: p.name,
+                role: p.role as 'admin' | 'supervisor' | 'staff',
+                initials: p.initials,
+                email: p.email || undefined,
+                status: p.status || 'pending',
               }));
-            } else {
-              // Fallback to profiles if allowed_users is empty
-              const { data: profiles } = await supabase.from('profiles').select('*');
-              if (profiles && profiles.length > 0) {
-                dbUsers = profiles.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  role: p.role as 'admin' | 'supervisor' | 'staff',
-                  initials: p.initials,
-                  email: p.email || undefined,
-                  status: p.status || 'pending',
-                }));
-              }
             }
-          } catch (err) {
-            // Try profiles table if allowed_users fetch throws (e.g. table not created yet)
-            try {
-              const { data: profiles } = await supabase.from('profiles').select('*');
-              if (profiles && profiles.length > 0) {
-                dbUsers = profiles.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  role: p.role as 'admin' | 'supervisor' | 'staff',
-                  initials: p.initials,
-                  email: p.email || undefined,
-                  status: p.status || 'pending',
-                }));
-              }
-            } catch (profileErr) {
-              console.warn("Could not fetch allowed_users or profiles table from database. Fallback to mock users:", profileErr);
-            }
+          } catch (profileErr) {
+            console.warn("Could not fetch profiles table from database. Fallback to mock users:", profileErr);
           }
 
           let centralLoc = locRes.data?.[0];
