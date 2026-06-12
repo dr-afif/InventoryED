@@ -433,7 +433,7 @@ export const useStore = create<AppState>()(
             // Automatically create profile for Google Sign-In users if it doesn't exist
             if (!profile) {
               const email = session.user.email || '';
-              if (email.endsWith('@upm.edu.my')) {
+              if (email.toLowerCase().endsWith('@upm.edu.my')) {
                 const newName = session.user.user_metadata?.name || email.split('@')[0] || 'Unknown';
                 const newProfile = {
                   id: session.user.id,
@@ -454,6 +454,8 @@ export const useStore = create<AppState>()(
                 console.warn("User domain is not allowed. Revoking session.");
                 await supabase.auth.signOut();
                 set({ currentUser: null });
+                // We inject an error into the URL so the SignIn page can catch it
+                window.location.hash = '#error=access_denied&error_description=Only+@upm.edu.my+email+addresses+are+allowed.';
                 return;
               }
             }

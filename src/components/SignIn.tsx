@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 import { 
@@ -13,6 +13,21 @@ export const SignIn = () => {
   const { isSupabaseConnected } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    
+    if (hash && hash.includes('error=')) {
+      const params = new URLSearchParams(hash.replace('#', '?'));
+      setError(params.get('error_description')?.replace(/\+/g, ' ') || params.get('error') || 'Authentication failed');
+      window.history.replaceState(null, '', window.location.pathname);
+    } else if (search && search.includes('error=')) {
+      const params = new URLSearchParams(search);
+      setError(params.get('error_description')?.replace(/\+/g, ' ') || params.get('error') || 'Authentication failed');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
