@@ -376,7 +376,7 @@ export const useStore = create<AppState>()(
         }
       },
 
-      deleteUser: async (email, id) => {
+      deleteUser: async (email, _id) => {
         if (!isSupabaseConfigured()) {
           // Local Mock Mode
           set((state) => ({
