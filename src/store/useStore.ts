@@ -778,7 +778,12 @@ export const useStore = create<AppState>()(
         const centralLoc = getCentralLocation();
         const locId = centralLoc ? centralLoc.id : 'unknown';
 
-        const existingInvIndex = inventory.findIndex(i => i.medicationId === medicationId && i.locationId === locId);
+        const existingInvIndex = inventory.findIndex(i => 
+          i.medicationId === medicationId && 
+          i.locationId === locId &&
+          i.expiryDate === expiryDate &&
+          ((!batchNumber && !i.batchNumber) || i.batchNumber === batchNumber)
+        );
         let updatedInventory = [...inventory];
 
         await addAuditLog({
@@ -798,16 +803,12 @@ export const useStore = create<AppState>()(
           updatedInventory[existingInvIndex] = {
             ...invItem,
             currentQuantity: newQty,
-            expiryDate, // Update to the newly restocked expiry (simplified logic)
-            batchNumber,
             updatedAt: new Date().toISOString()
           };
 
           if (isSupabaseConfigured()) {
             await supabase.from('inventory_items').update({
               current_quantity: newQty,
-              expiry_date: expiryDate,
-              batch_number: batchNumber,
               updated_at: new Date().toISOString()
             }).eq('id', invItem.id);
           }

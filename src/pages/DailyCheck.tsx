@@ -22,28 +22,45 @@ export const DailyCheck = () => {
   
   const isComplete = totalItemsCount > 0 && checkedItemsCount === totalItemsCount;
 
-  // Derive filtered items
-  const filteredItems = useMemo(() => {
-    return locationItems.filter(item => {
+  // Derive filtered items grouped by medication
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, { med: any, totalExpected: number, totalActual: number, items: typeof inventory, isFullyChecked: boolean, hasDiscrepancy: boolean }> = {};
+    
+    // First, process all items
+    locationItems.forEach(item => {
       const med = medications.find(m => m.id === item.medicationId);
-      if (!med) return false;
+      if (!med) return;
+      
+      if (!groups[med.id]) {
+        groups[med.id] = { med, totalExpected: 0, totalActual: 0, items: [], isFullyChecked: true, hasDiscrepancy: false };
+      }
+      
+      groups[med.id].totalExpected += item.currentQuantity;
+      const actualQty = checkedItems[item.id];
+      if (actualQty !== undefined) {
+        groups[med.id].totalActual += actualQty;
+        if (actualQty !== item.currentQuantity) groups[med.id].hasDiscrepancy = true;
+      } else {
+        groups[med.id].isFullyChecked = false;
+      }
+      
+      groups[med.id].items.push(item);
+    });
 
+    // Then apply filters
+    return Object.values(groups).filter(group => {
       // Search match
-      const searchMatch = (med.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (med.genericName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const searchMatch = (group.med.displayName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (group.med.genericName || '').toLowerCase().includes(searchQuery.toLowerCase());
       if (!searchMatch) return false;
 
-      // Filter match
-      const isChecked = checkedItems[item.id] !== undefined;
-      const isDiscrepancy = isChecked && checkedItems[item.id] !== item.currentQuantity;
-
       switch (filterTab) {
-        case 'unchecked': return !isChecked;
-        case 'checked': return isChecked && !isDiscrepancy;
-        case 'discrepancy': return isDiscrepancy;
+        case 'unchecked': return !group.isFullyChecked;
+        case 'checked': return group.isFullyChecked && !group.hasDiscrepancy;
+        case 'discrepancy': return group.hasDiscrepancy;
         default: return true;
       }
-    });
+    }).sort((a, b) => a.med.displayName.localeCompare(b.med.displayName));
   }, [locationItems, medications, searchQuery, filterTab, checkedItems]);
 
   const handleUpdateQty = (invId: string, delta: number, currentQty: number) => {
@@ -164,26 +181,20 @@ export const DailyCheck = () => {
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-2xl mx-auto space-y-4">
           <AnimatePresence>
-            {filteredItems.map(item => {
-              const med = medications.find(m => m.id === item.medicationId);
-              if (!med) return null;
-
-              const expectedQty = item.currentQuantity;
-              const actualQty = checkedItems[item.id];
-              const isChecked = actualQty !== undefined;
-              const isDiscrepancy = isChecked && actualQty !== expectedQty;
+            {groupedItems.map(group => {
+              const { med, totalExpected, isFullyChecked, hasDiscrepancy, items } = group;
 
               return (
                 <motion.div
-                  key={item.id}
+                  key={med.id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   className={clsx(
                     "p-4 rounded-2xl border transition-all duration-300",
-                    isDiscrepancy ? "bg-danger/5 border-danger/30" : 
-                    isChecked ? "bg-success/5 border-success/30 opacity-70 hover:opacity-100" : 
+                    hasDiscrepancy ? "bg-danger/5 border-danger/30" : 
+                    isFullyChecked ? "bg-success/5 border-success/30 opacity-80 hover:opacity-100" : 
                     "bg-white border-slate-200 shadow-sm"
                   )}
                 >
@@ -193,76 +204,105 @@ export const DailyCheck = () => {
                         {med.displayName}
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Expected: <span className="font-bold">{expectedQty}</span>
+                        Total Expected: <span className="font-bold">{totalExpected}</span>
                       </p>
                     </div>
                     
-                    {isDiscrepancy && (
+                    {hasDiscrepancy && (
                       <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-danger bg-danger/10 px-2 py-1 rounded-md">
                         <AlertOctagon size={12} /> Discrepancy
                       </span>
                     )}
-                    {isChecked && !isDiscrepancy && (
+                    {isFullyChecked && !hasDiscrepancy && (
                       <span className="flex items-center gap-1 text-[10px] uppercase font-bold text-success bg-success/10 px-2 py-1 rounded-md">
                         <CheckCircle2 size={12} /> Checked
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-col md:flex-row md:items-center gap-3">
-                    {/* Input Controls */}
-                    <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden w-full md:max-w-[160px]">
-                      <button 
-                        onClick={() => handleUpdateQty(item.id, -1, expectedQty)}
-                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors flex-1 flex justify-center"
-                      >
-                        <Minus size={18} />
-                      </button>
-                      
-                      <div className="flex-1 min-w-[50px] text-center font-bold text-lg text-slate-800">
-                        {actualQty !== undefined ? actualQty : expectedQty}
-                      </div>
-                      
-                      <button 
-                        onClick={() => handleUpdateQty(item.id, 1, expectedQty)}
-                        className="p-3 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors flex-1 flex justify-center"
-                      >
-                        <Plus size={18} />
-                      </button>
-                    </div>
+                  <div className="space-y-3">
+                    {items.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()).map(item => {
+                      const expectedQty = item.currentQuantity;
+                      const actualQty = checkedItems[item.id];
+                      const isItemChecked = actualQty !== undefined;
+                      const isItemDiscrepancy = isItemChecked && actualQty !== expectedQty;
+                      const isExpired = new Date(item.expiryDate).getTime() < Date.now();
 
-                    {/* Quick Actions */}
-                    <div className="flex gap-2 w-full md:flex-1">
-                      <button 
-                        onClick={() => handleSetCorrect(item.id, expectedQty)}
-                        className={clsx(
-                          "flex-1 py-3 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
-                          isChecked && !isDiscrepancy 
-                            ? "bg-success text-white" 
-                            : "bg-slate-100 text-slate-600 hover:bg-success hover:text-white"
-                        )}
-                      >
-                        <CheckCircle2 size={16} /> Correct
-                      </button>
-                      <button 
-                        onClick={() => handleMarkDiscrepancy(item.id, expectedQty)}
-                        className={clsx(
-                          "flex-1 py-3 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors",
-                          isDiscrepancy
-                            ? "bg-danger text-white"
-                            : "bg-slate-100 text-slate-600 hover:bg-danger hover:text-white"
-                        )}
-                      >
-                        <AlertTriangle size={16} /> Mark Disc.
-                      </button>
-                    </div>
+                      return (
+                        <div key={item.id} className={clsx(
+                          "flex flex-col md:flex-row md:items-center gap-3 p-3 rounded-xl border transition-colors",
+                          isItemDiscrepancy ? "bg-danger/10 border-danger/20" :
+                          isItemChecked ? "bg-success/10 border-success/20" :
+                          isExpired ? "bg-danger/5 border-danger/20" : "bg-slate-50 border-slate-100"
+                        )}>
+                          <div className="flex-1">
+                            <div className="text-xs font-bold text-slate-700">
+                              Exp: <span className={isExpired ? 'text-danger' : 'text-slate-800'}>{new Date(item.expiryDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+                              {item.batchNumber && <span className="text-slate-400 font-normal ml-2">Batch: {item.batchNumber}</span>}
+                            </div>
+                            <div className="text-[10px] text-slate-500 uppercase font-semibold mt-0.5">Expected: {expectedQty}</div>
+                          </div>
+
+                          <div className="flex flex-col md:flex-row md:items-center gap-2">
+                            {/* Input Controls */}
+                            <div className="flex items-center bg-white rounded-lg border border-slate-200 overflow-hidden w-full md:max-w-[120px] shadow-sm">
+                              <button 
+                                onClick={() => handleUpdateQty(item.id, -1, expectedQty)}
+                                className="p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors flex-1 flex justify-center"
+                              >
+                                <Minus size={14} />
+                              </button>
+                              
+                              <div className="flex-1 min-w-[40px] text-center font-bold text-sm text-slate-800">
+                                {actualQty !== undefined ? actualQty : expectedQty}
+                              </div>
+                              
+                              <button 
+                                onClick={() => handleUpdateQty(item.id, 1, expectedQty)}
+                                className="p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors flex-1 flex justify-center"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+
+                            {/* Quick Actions */}
+                            <div className="flex gap-1 w-full md:w-auto">
+                              <button 
+                                onClick={() => handleSetCorrect(item.id, expectedQty)}
+                                className={clsx(
+                                  "flex-1 md:flex-none p-2 rounded-lg text-xs font-bold transition-colors",
+                                  isItemChecked && !isItemDiscrepancy 
+                                    ? "bg-success text-white" 
+                                    : "bg-slate-200 text-slate-600 hover:bg-success hover:text-white"
+                                )}
+                                title="Mark as correct"
+                              >
+                                <CheckCircle2 size={16} className="mx-auto" />
+                              </button>
+                              <button 
+                                onClick={() => handleMarkDiscrepancy(item.id, expectedQty)}
+                                className={clsx(
+                                  "flex-1 md:flex-none p-2 rounded-lg text-xs font-bold transition-colors",
+                                  isItemDiscrepancy
+                                    ? "bg-danger text-white"
+                                    : "bg-slate-200 text-slate-600 hover:bg-danger hover:text-white"
+                                )}
+                                title="Mark as discrepancy (set 0)"
+                              >
+                                <AlertTriangle size={16} className="mx-auto" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               );
             })}
           </AnimatePresence>
 
-          {filteredItems.length === 0 && (
+          {groupedItems.length === 0 && (
             <div className="text-center p-8 text-slate-500">
               <Filter size={32} className="mx-auto mb-3 opacity-20" />
               <p className="text-sm">No medications match your filter criteria.</p>

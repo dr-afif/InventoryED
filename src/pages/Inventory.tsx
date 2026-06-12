@@ -21,6 +21,20 @@ export const Inventory = () => {
     });
   }, [inventory, medications, searchQuery]);
 
+  const groupedInventory = useMemo(() => {
+    const groups: Record<string, { med: any, totalQty: number, items: typeof inventory }> = {};
+    filteredInventory.forEach(inv => {
+      const med = medications.find(m => m.id === inv.medicationId);
+      if (!med) return;
+      if (!groups[med.id]) {
+        groups[med.id] = { med, totalQty: 0, items: [] };
+      }
+      groups[med.id].totalQty += inv.currentQuantity;
+      groups[med.id].items.push(inv);
+    });
+    return Object.values(groups).sort((a, b) => a.med.displayName.localeCompare(b.med.displayName));
+  }, [filteredInventory, medications]);
+
   const handleRestock = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -194,44 +208,68 @@ export const Inventory = () => {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {filteredInventory.map(inv => {
-                const med = medications.find(m => m.id === inv.medicationId);
-                if (!med) return null;
-
-                const isLowStock = inv.currentQuantity <= inv.minStockLevel;
+              {groupedInventory.map(({ med, totalQty, items }) => {
+                const isLowStock = totalQty <= med.minStockLevel;
 
                 return (
-                  <div key={inv.id} className="p-4 md:px-6 md:py-4 hover:bg-slate-50 transition-colors flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center">
+                  <div key={med.id} className="p-4 md:px-6 md:py-5 hover:bg-slate-50 transition-colors">
                     
-                    <div className="md:col-span-8 flex flex-col">
-                      <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight">{med.displayName}</h3>
-                      <p className="text-xs text-slate-500 mt-1">{med.genericName || ''} {med.form ? `• ${med.form}` : ''}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between md:contents">
-                      <div className="md:col-span-2 flex items-center gap-2 md:block md:text-right">
-                        <span className="md:hidden text-[10px] text-slate-500 uppercase font-bold">Stock</span>
-                        <span className="font-bold text-lg text-slate-800">{inv.currentQuantity}</span>
+                    {/* Main Row */}
+                    <div className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center">
+                      <div className="md:col-span-8 flex flex-col">
+                        <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight">{med.displayName}</h3>
+                        <p className="text-xs text-slate-500 mt-1">{med.genericName || ''} {med.form ? `• ${med.form}` : ''}</p>
                       </div>
 
-                      <div className="md:col-span-2 flex justify-end">
-                        {isLowStock ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-danger/10 text-danger text-xs font-bold uppercase">
-                            <AlertTriangle size={14} /> Low
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-success/10 text-success text-xs font-bold uppercase">
-                            OK
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between md:contents">
+                        <div className="md:col-span-2 flex items-center gap-2 md:block md:text-right">
+                          <span className="md:hidden text-[10px] text-slate-500 uppercase font-bold">Total Stock</span>
+                          <span className="font-bold text-lg text-slate-800">{totalQty}</span>
+                        </div>
+
+                        <div className="md:col-span-2 flex justify-end">
+                          {isLowStock ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-danger/10 text-danger text-xs font-bold uppercase">
+                              <AlertTriangle size={14} /> Low
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-success/10 text-success text-xs font-bold uppercase">
+                              OK
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Batches Sub-rows */}
+                    {items.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-100/60 pl-2 space-y-2">
+                        {items.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()).map(batch => {
+                          const isExpiringSoon = new Date(batch.expiryDate).getTime() < Date.now() + 90 * 24 * 60 * 60 * 1000;
+                          const isExpired = new Date(batch.expiryDate).getTime() < Date.now();
+                          
+                          return (
+                            <div key={batch.id} className={`flex justify-between items-center text-xs rounded-lg p-2.5 border shadow-sm transition-colors ${isExpired ? 'bg-danger/5 border-danger/20' : 'bg-white border-slate-100'}`}>
+                              <div className="flex gap-4 items-center">
+                                <span className="font-medium text-slate-600">
+                                  Expiry: <span className={isExpired ? 'text-danger font-bold' : isExpiringSoon ? 'text-warning font-bold' : 'text-slate-800 font-bold'}>{new Date(batch.expiryDate).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+                                </span>
+                                {batch.batchNumber && (
+                                  <span className="text-slate-400">Batch: {batch.batchNumber}</span>
+                                )}
+                              </div>
+                              <span className="font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">Qty: {batch.currentQuantity}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                   </div>
                 );
               })}
 
-              {filteredInventory.length === 0 && (
+              {groupedInventory.length === 0 && (
                 <div className="p-12 text-center text-slate-500">
                   <Search size={48} className="mx-auto mb-4 text-slate-300" />
                   <p>No inventory items found matching your criteria.</p>
