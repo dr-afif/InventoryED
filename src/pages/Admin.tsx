@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { PackagePlus, PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste, ArrowRight, Save, RotateCcw } from 'lucide-react';
+import { PlusSquare, AlertTriangle, CheckCircle2, Users, UserPlus, Pencil, Trash2, X, ClipboardPaste, ArrowRight, Save, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { User } from '../types';
 import { parseMedicationBulkText, normalizeMedicationName, type ParsedMedicationImportRow } from '../utils/medicationParser';
 
 export const Admin = () => {
-  const { medications, addStock, addMedication, addBulkMedications, currentUser, users, updateUserStatus } = useStore();
+  const { medications, addMedication, addBulkMedications, currentUser, users, updateUserStatus } = useStore();
   
   const [activeTab, setActiveTab] = useState<'new_med' | 'users'>('new_med');
   const [successMessage, setSuccessMessage] = useState('');
