@@ -8,12 +8,24 @@ import { Inventory } from './pages/Inventory';
 import { Logs } from './pages/Logs';
 import { Admin } from './pages/Admin';
 import { InstallPWA } from './components/InstallPWA';
+import { supabase } from './lib/supabase';
 
 function App() {
   const fetchInitialData = useStore(state => state.fetchInitialData);
 
   useEffect(() => {
     fetchInitialData();
+
+    // Listen for OAuth redirects and auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        fetchInitialData();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [fetchInitialData]);
 
   return (
