@@ -8,6 +8,10 @@ export const Inventory = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRestockForm, setShowRestockForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  
+  const [medSearch, setMedSearch] = useState('');
+  const [selectedMedId, setSelectedMedId] = useState('');
+  const [showMedDropdown, setShowMedDropdown] = useState(false);
 
   const filteredInventory = useMemo(() => {
     return inventory.filter(inv => {
@@ -20,7 +24,7 @@ export const Inventory = () => {
   const handleRestock = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const medicationId = formData.get('medicationId') as string;
+    const medicationId = selectedMedId;
     const quantity = Number(formData.get('quantity'));
     const expiryDate = formData.get('expiryDate') as string;
     const batchNumber = formData.get('batchNumber') as string;
@@ -31,9 +35,8 @@ export const Inventory = () => {
     setSuccessMessage('Stock successfully added!');
     setTimeout(() => setSuccessMessage(''), 3000);
     e.currentTarget.reset();
-    
-    // Optionally close the form after successful restock
-    // setShowRestockForm(false);
+    setSelectedMedId('');
+    setMedSearch('');
   };
 
   const isAdminOrSupervisor = currentUser?.role === 'admin' || currentUser?.role === 'supervisor';
@@ -101,14 +104,55 @@ export const Inventory = () => {
                   </div>
                   
                   <form onSubmit={handleRestock} className="space-y-4">
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-bold text-slate-700 mb-1">Select Medication</label>
-                      <select name="medicationId" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors">
-                        <option value="">-- Choose Medication --</option>
-                        {medications.map(med => (
-                          <option key={med.id} value={med.id}>{med.displayName} {med.genericName ? `(${med.genericName})` : ''}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                          type="text" 
+                          placeholder="Search and select medication..."
+                          value={selectedMedId ? medications.find(m => m.id === selectedMedId)?.displayName || medSearch : medSearch}
+                          onChange={(e) => {
+                            setMedSearch(e.target.value);
+                            setSelectedMedId('');
+                            setShowMedDropdown(true);
+                          }}
+                          onFocus={() => setShowMedDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowMedDropdown(false), 200)}
+                          className={`w-full pl-9 pr-4 py-3 rounded-xl border ${selectedMedId ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-slate-200 bg-slate-50'} focus:border-primary-500 outline-none transition-colors font-medium`}
+                          required={!selectedMedId}
+                        />
+                      </div>
+                      
+                      {showMedDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] max-h-60 overflow-y-auto">
+                          {medications
+                            .filter(med => 
+                              med.displayName.toLowerCase().includes(medSearch.toLowerCase()) || 
+                              (med.genericName || '').toLowerCase().includes(medSearch.toLowerCase())
+                            )
+                            .map(med => (
+                              <div 
+                                key={med.id} 
+                                className="px-4 py-2.5 hover:bg-primary-50 cursor-pointer border-b last:border-0 border-slate-100 flex flex-col"
+                                onClick={() => {
+                                  setSelectedMedId(med.id);
+                                  setMedSearch('');
+                                  setShowMedDropdown(false);
+                                }}
+                              >
+                                <span className="font-bold text-sm text-slate-800">{med.displayName}</span>
+                                {med.genericName && <span className="text-xs text-slate-500">{med.genericName}</span>}
+                              </div>
+                            ))}
+                          {medications.filter(med => 
+                              med.displayName.toLowerCase().includes(medSearch.toLowerCase()) || 
+                              (med.genericName || '').toLowerCase().includes(medSearch.toLowerCase())
+                            ).length === 0 && (
+                              <div className="px-4 py-3 text-sm text-slate-500 text-center">No medications found</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
