@@ -8,7 +8,7 @@ import { parseMedicationBulkText, normalizeMedicationName, type ParsedMedication
 export const Admin = () => {
   const { medications, addStock, addMedication, addBulkMedications, currentUser, users, updateUserStatus } = useStore();
   
-  const [activeTab, setActiveTab] = useState<'restock' | 'new_med' | 'users'>('restock');
+  const [activeTab, setActiveTab] = useState<'new_med' | 'users'>('new_med');
   const [successMessage, setSuccessMessage] = useState('');
   
   // Bulk Import States
@@ -92,20 +92,7 @@ export const Admin = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
-  const handleRestock = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const medicationId = formData.get('medicationId') as string;
-    const quantity = Number(formData.get('quantity'));
-    const expiryDate = formData.get('expiryDate') as string;
-    const batchNumber = formData.get('batchNumber') as string;
 
-    if (!medicationId || !quantity || !expiryDate) return;
-
-    await addStock(medicationId, quantity, expiryDate, batchNumber);
-    showSuccess('Stock successfully added!');
-    e.currentTarget.reset();
-  };
 
   const handleNewMedication = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -183,14 +170,7 @@ export const Admin = () => {
 
           {/* TABS */}
           <div className="flex bg-slate-200/50 p-1 rounded-xl gap-1">
-            <button
-              onClick={() => setActiveTab('restock')}
-              className={`flex-1 py-2.5 px-2 md:px-4 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all ${
-                activeTab === 'restock' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <PackagePlus size={18} /> <span className="hidden sm:inline">Restock Item</span><span className="sm:hidden">Restock</span>
-            </button>
+
             <button
               onClick={() => setActiveTab('new_med')}
               className={`flex-1 py-2.5 px-2 md:px-4 rounded-lg font-bold text-xs md:text-sm flex items-center justify-center gap-1.5 transition-all ${
@@ -223,47 +203,7 @@ export const Admin = () => {
             )}
           </AnimatePresence>
 
-          {/* RESTOCK FORM */}
-          {activeTab === 'restock' && (
-            <motion.div
-              key="restock"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="card p-6"
-            >
-              <form onSubmit={handleRestock} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Select Medication</label>
-                  <select name="medicationId" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors">
-                    <option value="">-- Choose Medication --</option>
-                    {medications.map(med => (
-                      <option key={med.id} value={med.id}>{med.displayName} {med.genericName ? `(${med.genericName})` : ''}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Quantity Received</label>
-                    <input type="number" name="quantity" required min="1" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Expiry Date</label>
-                    <input type="date" name="expiryDate" required className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">Batch Number (Optional)</label>
-                  <input type="text" name="batchNumber" className="w-full p-3 rounded-xl border border-slate-200 focus:border-primary-500 outline-none bg-slate-50 focus:bg-white transition-colors" />
-                </div>
-
-                <button type="submit" className="btn-primary w-full mt-6">
-                  Add Stock
-                </button>
-              </form>
-            </motion.div>
-          )}
 
           {/* NEW MEDICATION FORM */}
           {activeTab === 'new_med' && (
